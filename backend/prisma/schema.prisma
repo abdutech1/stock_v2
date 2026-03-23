@@ -1,0 +1,753 @@
+// generator client {
+//   provider = "prisma-client"
+//   output   = "../src/generated/prisma"
+// }
+
+// datasource db {
+//   provider = "mysql"
+// }
+
+// model category {
+//   id        Int      @id @default(autoincrement())
+//   name      String   @unique
+//   imageUrl  String? 
+//   isActive  Boolean  @default(true)
+
+//   pricecategory pricecategory[]
+// }
+
+
+// model pricecategory {
+//   id         Int      @id @default(autoincrement())
+//   fixedPrice Float
+//   imageUrl   String? 
+//   isActive   Boolean   @default(true)
+
+//   categoryId Int
+//   category   category @relation(fields: [categoryId], references: [id], map: "PriceCategory_categoryId_fkey")
+
+//   saleItems     SaleItem[]
+//   stock      stock?
+
+//   @@index([categoryId], map: "PriceCategory_categoryId_fkey")
+// }
+
+
+// model expense {
+//   id          Int      @id @default(autoincrement())
+//   description String
+//   amount      Float
+
+//   expenseDate DateTime 
+//   category    String?    // optional (rent, transport, utilities, etc.)
+
+//   createdAt   DateTime @default(now())
+
+//   @@index([expenseDate])
+// }
+
+
+// enum payment_method {
+//   CASH
+//   BANK
+// }
+
+
+// enum sale_status {
+//   DRAFT
+//   CONFIRMED
+//   CANCELLED
+// }
+
+
+
+// model Sale {
+//   id        Int      @id @default(autoincrement())
+//   status    sale_status @default(DRAFT)
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   employeeId Int
+//   user       user @relation(fields: [employeeId], references: [id])
+
+//   items      SaleItem[]
+//   payments   SalePayment[]
+// }
+
+
+
+// model SaleItem {
+//   id              Int           @id @default(autoincrement())
+//   saleId          Int
+//   priceCategoryId Int
+//   quantity        Int
+//   soldPrice       Float
+
+//   sale            Sale          @relation(fields: [saleId], references: [id])
+//   pricecategory   pricecategory @relation(fields: [priceCategoryId], references: [id])
+
+//   @@unique([saleId, priceCategoryId])
+// }
+
+// model SalePayment {
+//   id        Int   @id @default(autoincrement())
+
+//   saleId   Int
+//   method   payment_method
+//   amount   Float
+//   bankName String?
+
+//   sale Sale @relation(fields: [saleId], references: [id])
+// }
+
+
+
+
+
+
+// model stock {
+//   id              Int           @id @default(autoincrement())
+//   purchasePrice   Float
+//   quantity        Int
+//   createdAt       DateTime      @default(now())
+//   updatedAt       DateTime      @updatedAt
+//   priceCategoryId Int           @unique(map: "Stock_priceCategoryId_key")
+//   pricecategory   pricecategory @relation(fields: [priceCategoryId], references: [id], map: "Stock_priceCategoryId_fkey")
+// }
+
+// enum UserRole {
+//   OWNER
+//   EMPLOYEE
+// }
+
+// model user {
+//   id          Int      @id @default(autoincrement())
+//   name        String
+//   phoneNumber String   @unique
+//   password String
+//   role        UserRole
+//   baseSalary  Float?
+//   isActive    Boolean  @default(true)
+//   mustChangePassword Boolean @default(true)
+
+//   lastLoginAt DateTime?
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   salarypayment salarypayment[]
+//   sale          Sale[]
+//   bonusPayment  bonusPayment[]
+//   attendance    attendance[]
+//   loginLogs LoginLog[]
+// }
+
+// model LoginLog {
+// id Int @id @default(autoincrement())
+// userId Int
+// ip String?
+// userAgent String?
+// createdAt DateTime @default(now())
+
+
+// user user @relation(fields: [userId], references: [id])
+// }
+
+
+// enum AttendanceStatus {
+//   PRESENT
+//   ABSENT
+//   HALF_DAY
+// }
+
+// model attendance {
+//   id        Int      @id @default(autoincrement())
+//   userId    Int
+//   date      DateTime
+//   status    AttendanceStatus @default(PRESENT)
+//   createdAt DateTime @default(now())
+
+//   user user @relation(fields: [userId], references: [id])
+
+//   @@unique([userId, date])
+// }
+
+
+// enum SalaryPaymentType {
+//   DAILY
+//   PERIOD
+// }
+
+// model salarypayment {
+//   id          Int      @id @default(autoincrement())
+//   userId      Int
+//   rate        Float
+//   daysWorked  Int
+//   amount      Float
+//   paymentType SalaryPaymentType
+//   periodStart DateTime
+//   periodEnd   DateTime
+//   createdAt   DateTime @default(now())
+
+//   user user @relation(fields: [userId], references: [id])
+
+//   @@index([userId, periodStart, periodEnd])
+// }
+
+
+
+
+
+// enum bonus_type {
+//   PERIOD_TOTAL    
+//   SINGLE_SALE      
+//   GLOBAL           
+// }
+
+
+// model bonusRule {
+//   id          Int        @id @default(autoincrement())
+//   type        bonus_type
+//   minAmount   Float
+//   bonusAmount Float
+//   isActive    Boolean    @default(true)
+
+//   // relations
+//   bonusPayments bonusPayment[]
+
+//   @@unique([type, minAmount])
+
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+// }
+
+
+
+
+// model bonusPayment {
+//   id           Int      @id @default(autoincrement())
+//   userId       Int
+//   periodStart  DateTime
+//   periodEnd    DateTime
+//   type         bonus_type
+//   amount       Float
+//   ruleId       Int?
+
+//   user         user       @relation(fields: [userId], references: [id])
+//   rule         bonusRule? @relation(fields: [ruleId], references: [id])
+
+//   createdAt    DateTime   @default(now())
+
+//   @@unique([userId, periodStart, periodEnd, type])
+//   @@index([periodStart, periodEnd])
+//   @@index([userId])
+// }
+
+
+
+// model StockAlert {
+//   id              Int      @id @default(autoincrement())
+//   priceCategoryId Int
+//   lastSentAt      DateTime
+//   createdAt       DateTime @default(now())
+
+//   @@unique([priceCategoryId])
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../src/generated/prisma-client"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+//////////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////////
+
+enum Plan {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ORG_ADMIN
+  EMPLOYEE
+}
+
+enum BranchRole {
+  MANAGER
+  CASHIER
+  STOCK_KEEPER
+  VIEW_ONLY
+}
+
+enum SaleStatus {
+  DRAFT
+  COMPLETED
+  PARTIAL_PAID
+  UNPAID
+  CANCELLED
+  RETURNED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  MOBILE_MONEY
+  CARD
+  CREDIT
+}
+
+enum StockLogType {
+  PURCHASE
+  SALE
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT
+  DAMAGE
+  RETURN
+}
+
+enum TransferStatus {
+  PENDING
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum PriceType {
+  RETAIL
+  WHOLESALE
+  DISTRIBUTOR
+  PROMOTION
+}
+
+enum PurchaseStatus {
+  ORDERED
+  RECEIVED
+  PARTIAL
+  CANCELLED
+}
+
+//////////////////////////////////////////////////////
+// SAAS CORE
+//////////////////////////////////////////////////////
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  plan      Plan     @default(FREE)
+  isActive  Boolean  @default(true)
+  
+  // E. Organization Settings (JSON for Currencies, Taxes, Timezones)
+  settings  Json?    
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime? // C. Soft Delete
+
+  users         User[]
+  branches      Branch[]
+  products      Product[]
+  suppliers     Supplier[]
+  customers     Customer[]
+  subscriptions Subscription[]
+  featureFlags  FeatureFlag[]
+  bonusRules    BonusRule[]
+
+  @@index([slug])
+}
+
+model Subscription {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  plan           Plan
+  startsAt       DateTime
+  endsAt         DateTime
+  isActive       Boolean      @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+}
+
+model FeatureFlag {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  key            String
+  isEnabled      Boolean      @default(true)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, key])
+}
+
+//////////////////////////////////////////////////////
+// USERS & ACCESS
+//////////////////////////////////////////////////////
+
+model User {
+  id             Int          @id @default(autoincrement())
+  name           String
+  phoneNumber    String       @unique
+  password       String
+  role           UserRole
+  organizationId Int
+  isActive       Boolean      @default(true)
+  
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branches       BranchUser[]
+  sales          Sale[]
+  attendances    Attendance[]
+  salaryPayments SalaryPayment[]
+  bonusPayments  BonusPayment[]
+  loginLogs      LoginLog[]
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?    // C. Soft Delete
+
+  @@index([organizationId])
+}
+
+model Branch {
+  id             Int          @id @default(autoincrement())
+  name           String
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  stocks         Stock[]
+  sales          Sale[]
+  purchases      Purchase[]
+  expenses       Expense[]
+  attendances    Attendance[]
+  salaryPayments SalaryPayment[]
+  branchUsers    BranchUser[]
+  bonusPayments  BonusPayment[]
+  stockAlerts    StockAlert[]
+
+  // A. Stock Transfer Symmetry
+  transfersFrom  StockTransfer[] @relation("FromBranch")
+  transfersTo    StockTransfer[] @relation("ToBranch")
+
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+model BranchUser {
+  userId   Int
+  branchId Int
+  role     BranchRole
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([userId, branchId])
+}
+
+//////////////////////////////////////////////////////
+// PRODUCTS & PRICING
+//////////////////////////////////////////////////////
+
+model Product {
+  id             Int              @id @default(autoincrement())
+  name           String
+  category       String?
+  organizationId Int
+  organization   Organization     @relation(fields: [organizationId], references: [id])
+  variants       ProductVariant[]
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?        // C. Soft Delete
+
+  @@index([organizationId, name])
+}
+
+model ProductVariant {
+  id           Int      @id @default(autoincrement())
+  sku          String?  @unique
+  name         String
+  productId    Int
+  costPrice    Decimal  @default(0) @db.Decimal(15, 4)
+  sellingPrice Decimal  @default(0) @db.Decimal(15, 4)
+
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  prices       Price[]
+  stocks       Stock[]
+  saleItems    SaleItem[]
+  stockLogs    StockLog[]
+  purchaseItems PurchaseItem[]
+  transferItems StockTransferItem[]
+  stockAlerts   StockAlert[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime? // C. Soft Delete
+
+  @@index([productId])
+}
+
+model Price {
+  id                Int            @id @default(autoincrement())
+  productVariantId  Int
+  type              PriceType      // B. Enum-based Pricing
+  amount            Decimal        @db.Decimal(15,4)
+
+  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@index([productVariantId])
+}
+
+//////////////////////////////////////////////////////
+// INVENTORY & TRANSFERS
+//////////////////////////////////////////////////////
+
+model Stock {
+  id                Int            @id @default(autoincrement())
+  branchId          Int
+  productVariantId  Int
+  quantity          Int            @default(0)
+  minStockLevel     Int            @default(5)
+
+  branch            Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, productVariantId])
+}
+
+model StockLog {
+  id                Int            @id @default(autoincrement())
+  branchId          Int
+  productVariantId  Int
+  quantityChange    Int
+  type              StockLogType
+  reason            String?
+  referenceId       Int?
+
+  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
+  createdAt         DateTime       @default(now())
+
+  @@index([branchId, createdAt])
+}
+
+model StockTransfer {
+  id            Int             @id @default(autoincrement())
+  fromBranchId  Int
+  toBranchId    Int
+  status        TransferStatus  @default(PENDING)
+  
+  // A. Transfer Tracking Logic
+  shippedAt     DateTime?
+  receivedAt    DateTime?
+
+  fromBranch    Branch          @relation("FromBranch", fields: [fromBranchId], references: [id])
+  toBranch      Branch          @relation("ToBranch", fields: [toBranchId], references: [id])
+  items         StockTransferItem[]
+
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+}
+
+model StockTransferItem {
+  id                Int            @id @default(autoincrement())
+  transferId        Int
+  productVariantId  Int
+  quantity          Int
+
+  transfer          StockTransfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+//////////////////////////////////////////////////////
+// PURCHASE & SUPPLIER
+//////////////////////////////////////////////////////
+
+model Supplier {
+  id             Int          @id @default(autoincrement())
+  name           String
+  phone          String?
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  purchases      Purchase[]
+
+  @@index([organizationId])
+}
+
+model Purchase {
+  id          Int            @id @default(autoincrement())
+  branchId    Int
+  supplierId  Int?
+  totalCost   Decimal        @db.Decimal(15,4)
+  status      PurchaseStatus @default(ORDERED) // D. Order Tracking
+
+  branch      Branch         @relation(fields: [branchId], references: [id])
+  supplier    Supplier?      @relation(fields: [supplierId], references: [id])
+  items       PurchaseItem[]
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model PurchaseItem {
+  id                Int            @id @default(autoincrement())
+  purchaseId        Int
+  productVariantId  Int
+  quantity          Int
+  cost              Decimal        @db.Decimal(15,4)
+
+  purchase          Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+//////////////////////////////////////////////////////
+// SALES, CREDIT & HR
+//////////////////////////////////////////////////////
+
+model Customer {
+  id             Int          @id @default(autoincrement())
+  name           String
+  phone          String?
+  balance        Decimal      @default(0) @db.Decimal(15,4)
+  organizationId Int
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  sales          Sale[]
+
+  createdAt      DateTime     @default(now())
+}
+
+model Sale {
+  id             Int            @id @default(autoincrement())
+  branchId       Int
+  userId         Int
+  customerId     Int?
+  totalAmount    Decimal        @db.Decimal(15,4)
+  paidAmount     Decimal        @default(0) @db.Decimal(15,4)
+  dueAmount      Decimal        @db.Decimal(15,4)
+  status         SaleStatus
+  paymentMethod  PaymentMethod?
+
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  user           User           @relation(fields: [userId], references: [id])
+  customer       Customer?      @relation(fields: [customerId], references: [id])
+  items          SaleItem[]
+
+  createdAt      DateTime       @default(now())
+}
+
+model SaleItem {
+  id                Int            @id @default(autoincrement())
+  saleId            Int
+  productVariantId  Int
+  quantity          Int
+  unitPrice         Decimal        @db.Decimal(15,4)
+
+  sale              Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
+}
+
+model Attendance {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  branchId  Int
+  date      DateTime
+  status    String   // PRESENT, ABSENT, etc.
+  user      User     @relation(fields: [userId], references: [id])
+  branch    Branch   @relation(fields: [branchId], references: [id])
+}
+
+model SalaryPayment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  branchId  Int
+  amount    Decimal  @db.Decimal(15,4)
+  user      User     @relation(fields: [userId], references: [id])
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  branchId    Int
+  description String
+  amount      Decimal  @db.Decimal(15,4)
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model BonusRule {
+  id             Int          @id @default(autoincrement())
+  organizationId Int
+  name           String
+  bonusAmount    Decimal      @db.Decimal(15,4)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  bonusPayments  BonusPayment[]
+}
+
+model BonusPayment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  branchId  Int?
+  ruleId    Int?
+  amount    Decimal  @db.Decimal(15,4)
+  user      User     @relation(fields: [userId], references: [id])
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  rule      BonusRule? @relation(fields: [ruleId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  organizationId Int
+  userId         Int?
+  action         String
+  entity         String
+  entityId       Int?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+}
+
+model StockAlert {
+  id               Int            @id @default(autoincrement())
+  branchId         Int
+  productVariantId Int
+  threshold        Int
+  branch           Branch         @relation(fields: [branchId], references: [id])
+  productVariant   ProductVariant @relation(fields: [productVariantId], references: [id])
+
+  @@unique([branchId, productVariantId])
+}
+
+model LoginLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  ip        String?
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}

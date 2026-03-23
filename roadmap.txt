@@ -1,0 +1,333 @@
+✅ NEXT.JS FRONTEND ROADMAP
+
+Outstanding Boutique Stock Management System
+
+(Backend ✅ completed → Frontend starts here)
+
+PHASE 0 — Decisions (Locked In)
+
+Framework
+
+Next.js 14+ (App Router)
+
+TypeScript
+
+Styling
+
+Tailwind CSS
+
+State & Data
+
+Axios (API calls)
+
+TanStack Query (React Query)
+
+Zod (validation)
+
+Auth
+
+JWT (from your backend)
+
+HttpOnly cookies OR localStorage (we’ll match backend)
+
+PHASE 1 — Project Setup
+Step 1: Create Next.js app
+npx create-next-app@latest boutique-frontend
+
+
+Choose:
+
+TypeScript → ✅
+
+ESLint → ✅
+
+Tailwind → ✅
+
+App Router → ✅
+
+src/ directory → ✅
+
+Import alias → ✅ (@/*)
+
+Step 2: Install dependencies
+npm install axios @tanstack/react-query zod
+
+Step 3: Environment config
+
+Create .env.local
+
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+
+PHASE 2 — Folder Structure (VERY IMPORTANT)
+
+Create this before coding pages 👇
+
+src/
+│
+├── app/
+│   ├── layout.tsx
+│   ├── page.tsx              # Landing / redirect
+│   │
+│   ├── login/
+│   │   └── page.tsx
+│   │
+│   ├── dashboard/
+│   │   └── page.tsx
+│   │
+│   ├── stock/
+│   │   └── page.tsx
+│   │
+│   ├── sales/
+│   │   └── page.tsx
+│   │
+│   ├── reports/
+│   │   └── page.tsx
+│   │
+│   └── users/
+│       └── page.tsx
+│
+├── components/
+│   ├── ui/
+│   │   ├── Button.tsx
+│   │   ├── Input.tsx
+│   │   └── Modal.tsx
+│   │
+│   ├── Navbar.tsx
+│   ├── Sidebar.tsx
+│   └── Protected.tsx
+│
+├── api/
+│   ├── axios.ts
+│   ├── auth.api.ts
+│   ├── stock.api.ts
+│   ├── sales.api.ts
+│   └── reports.api.ts
+│
+├── hooks/
+│   ├── useAuth.ts
+│   └── useRole.ts
+│
+├── providers/
+│   └── ReactQueryProvider.tsx
+│
+├── utils/
+│   ├── formatDate.ts
+│   └── currency.ts
+│
+└── types/
+    └── index.ts
+
+PHASE 3 — App Bootstrap
+Step 4: React Query provider
+
+Create:
+
+src/providers/ReactQueryProvider.tsx
+
+
+Wrap it inside:
+
+src/app/layout.tsx
+
+
+👉 This enables clean data fetching everywhere.
+
+Step 5: Global layout
+
+In layout.tsx:
+
+Navbar
+
+Sidebar
+
+Role-based menu rendering
+
+PHASE 4 — Authentication (CORE FOUNDATION)
+Step 6: Axios instance
+
+src/api/axios.ts
+
+baseURL
+
+withCredentials (if cookies)
+
+request interceptor (token)
+
+response interceptor (401 → logout)
+
+Step 7: Auth API
+
+auth.api.ts
+
+login
+
+logout
+
+get current user
+
+Step 8: Auth hook
+
+useAuth.ts
+
+login()
+
+logout()
+
+user
+
+role
+
+isAuthenticated
+
+Step 9: Route protection (App Router way)
+
+Create:
+
+components/Protected.tsx
+
+
+Rules:
+
+Not logged in → redirect /login
+
+OWNER-only routes protected
+
+PHASE 5 — Pages (Strict Order)
+Step 10: Login page
+
+/login
+
+phoneNumber
+
+password
+
+error & loading
+
+redirect to /dashboard
+
+✅ Test backend integration here FIRST.
+
+Step 11: Dashboard
+
+/dashboard
+
+summary cards
+
+total stock
+
+today sales
+
+revenue
+
+Step 12: Stock Management
+
+/stock
+
+list products
+
+update quantity
+
+disable update if sales exist (backend already handles logic)
+
+Step 13: Sales
+
+/sales
+
+create sale
+
+stock auto deduction
+
+validation
+
+Step 14: Reports
+
+/reports
+
+filter by day/week/month
+
+tables first
+
+charts optional
+
+Step 15: Users (OWNER only)
+
+/users
+
+employee list
+
+activate / deactivate
+
+PHASE 6 — UI & UX Polish
+Step 16: UX essentials
+
+Skeleton loaders
+
+Empty states
+
+Toast notifications
+
+Confirm dialogs
+
+PHASE 7 — Production Readiness
+Step 17: Security
+
+Role-based UI hiding
+
+Route protection
+
+Token expiration handling
+
+Step 18: Performance
+
+Server Components where possible
+
+Client Components only when needed
+
+Memoize heavy tables
+
+Step 19: Build & test
+npm run build
+npm run start
+
+🔥 EXECUTION STRATEGY 
+
+
+Order:
+
+Project setup & folders
+
+Axios + Auth
+
+Login page
+
+Dashboard
+
+Stock → Sales → Reports → Users
+
+
+
+
+
+6️⃣ Quick Test (DO THIS)
+Backend
+npm run dev
+
+Frontend (temporary test)
+
+In Next.js later:
+
+axios.get("http://localhost:5000/health", {
+  withCredentials: true
+});
+
+
+✅ If no CORS error → we’re good.
+
+
+
+Add stock form/modal – should we design it first?
+Stock table – what exact columns do you want to show?
+Summary cards design – do you want big colorful cards or minimal?
+Filters & sorting – do you want them now or later?
+Low stock alerts / highlighting – important for you?
+Images – do price categories already have good images?

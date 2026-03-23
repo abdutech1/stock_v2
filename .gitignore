@@ -1,0 +1,16 @@
+# Local uploads and media
+backend/uploads/**/*
+!backend/uploads/.gitkeep
+
+# Logs and environment
+*.log
+.env*
+node_modules/
+
+
+# Build folders
+dist/
+.next/
+out/
+
+/prisma/migrations
