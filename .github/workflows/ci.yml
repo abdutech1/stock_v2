@@ -34,13 +34,16 @@ jobs:
           node-version: 22
           cache: 'npm'
 
+      # === Run everything from the backend folder ===
       - name: Install dependencies
+        working-directory: ./backend
         run: npm ci
 
       - name: Prisma Generate
+        working-directory: ./backend
         run: npx prisma generate
 
-      - name: Wait for MySQL to be ready
+      - name: Wait for MySQL
         run: |
           echo "Waiting for MySQL..."
           until mysqladmin ping -h 127.0.0.1 -P 3306 --silent; do
@@ -49,17 +52,21 @@ jobs:
           echo "MySQL is ready!"
 
       - name: Run Prisma DB Setup
+        working-directory: ./backend
         run: npx prisma db push --accept-data-loss
         env:
           DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"
 
       - name: Lint (if exists)
+        working-directory: ./backend
         run: npm run lint --if-present
 
       - name: Build (if using TypeScript)
+        working-directory: ./backend
         run: npm run build --if-present
 
-      - name: Run tests (if any)
+      - name: Run tests
+        working-directory: ./backend
         run: npm test --if-present
         env:
           DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"
@@ -67,4 +74,4 @@ jobs:
 
       - name: Summary
         if: always()
-        run: echo "✅ CI Pipeline finished! Check the logs above to see which step passed or failed."
+        run: echo "✅ CI Pipeline finished! (Backend folder structure detected)"
