@@ -18,15 +18,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          # We temporarily remove cache to stop the lock file error
+          cache: 'npm'                    # Now safe because package-lock.json exists
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci                       # Faster and cleaner with lock file
 
       - name: Prisma Generate
         run: npx prisma generate
 
-      - name: Lint (if you have it)
+      - name: Lint (if you have lint script)
         run: npm run lint --if-present
 
       - name: Build (if using TypeScript)
