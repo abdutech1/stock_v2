@@ -84,17 +84,17 @@ enum PurchaseStatus {
 //////////////////////////////////////////////////////
 
 model Organization {
-  id        Int      @id @default(autoincrement())
-  name      String
-  slug      String   @unique
-  plan      Plan     @default(FREE)
-  isActive  Boolean  @default(true)
-  
-  // E. Organization Settings (JSON for Currencies, Taxes, Timezones)
-  settings  Json?    
+  id       Int     @id @default(autoincrement())
+  name     String
+  slug     String  @unique
+  plan     Plan    @default(FREE)
+  isActive Boolean @default(true)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // E. Organization Settings (JSON for Currencies, Taxes, Timezones)
+  settings Json?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime? // C. Soft Delete
 
   users         User[]
@@ -136,15 +136,15 @@ model FeatureFlag {
 //////////////////////////////////////////////////////
 
 model User {
-  id             Int          @id @default(autoincrement())
+  id             Int      @id @default(autoincrement())
   name           String
-  phoneNumber    String       @unique
+  phoneNumber    String   @unique
   password       String
   role           UserRole
   organizationId Int
-  isActive       Boolean      @default(true)
-  
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  isActive       Boolean  @default(true)
+
+  organization   Organization    @relation(fields: [organizationId], references: [id])
   branches       BranchUser[]
   sales          Sale[]
   attendances    Attendance[]
@@ -152,9 +152,9 @@ model User {
   bonusPayments  BonusPayment[]
   loginLogs      LoginLog[]
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  deletedAt      DateTime?    // C. Soft Delete
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // C. Soft Delete
 
   @@index([organizationId])
 }
@@ -176,11 +176,11 @@ model Branch {
   stockAlerts    StockAlert[]
 
   // A. Stock Transfer Symmetry
-  transfersFrom  StockTransfer[] @relation("FromBranch")
-  transfersTo    StockTransfer[] @relation("ToBranch")
+  transfersFrom StockTransfer[] @relation("FromBranch")
+  transfersTo   StockTransfer[] @relation("ToBranch")
 
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([organizationId])
 }
@@ -204,49 +204,51 @@ model Product {
   id             Int              @id @default(autoincrement())
   name           String
   category       String?
+  imageUrl       String?
   organizationId Int
   organization   Organization     @relation(fields: [organizationId], references: [id])
   variants       ProductVariant[]
 
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  deletedAt      DateTime?        // C. Soft Delete
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // C. Soft Delete
 
   @@index([organizationId, name])
 }
 
 model ProductVariant {
-  id           Int      @id @default(autoincrement())
-  sku          String?  @unique
+  id           Int     @id @default(autoincrement())
+  sku          String? @unique
   name         String
+  imageUrl     String?
   productId    Int
-  costPrice    Decimal  @default(0) @db.Decimal(15, 4)
-  sellingPrice Decimal  @default(0) @db.Decimal(15, 4)
+  costPrice    Decimal @default(0) @db.Decimal(15, 4)
+  sellingPrice Decimal @default(0) @db.Decimal(15, 4)
 
-  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  
-  prices       Price[]
-  stocks       Stock[]
-  saleItems    SaleItem[]
-  stockLogs    StockLog[]
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  prices        Price[]
+  stocks        Stock[]
+  saleItems     SaleItem[]
+  stockLogs     StockLog[]
   purchaseItems PurchaseItem[]
   transferItems StockTransferItem[]
   stockAlerts   StockAlert[]
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  deletedAt    DateTime? // C. Soft Delete
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // C. Soft Delete
 
   @@index([productId])
 }
 
 model Price {
-  id                Int            @id @default(autoincrement())
-  productVariantId  Int
-  type              PriceType      // B. Enum-based Pricing
-  amount            Decimal        @db.Decimal(15,4)
+  id               Int       @id @default(autoincrement())
+  productVariantId Int
+  type             PriceType // B. Enum-based Pricing
+  amount           Decimal   @db.Decimal(15, 4)
 
-  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
 
   @@index([productVariantId])
 }
@@ -256,59 +258,59 @@ model Price {
 //////////////////////////////////////////////////////
 
 model Stock {
-  id                Int            @id @default(autoincrement())
-  branchId          Int
-  productVariantId  Int
-  quantity          Int            @default(0)
-  minStockLevel     Int            @default(5)
+  id               Int @id @default(autoincrement())
+  branchId         Int
+  productVariantId Int
+  quantity         Int @default(0)
+  minStockLevel    Int @default(5)
 
-  branch            Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+  branch         Branch         @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
 
   @@unique([branchId, productVariantId])
 }
 
 model StockLog {
-  id                Int            @id @default(autoincrement())
-  branchId          Int
-  productVariantId  Int
-  quantityChange    Int
-  type              StockLogType
-  reason            String?
-  referenceId       Int?
+  id               Int          @id @default(autoincrement())
+  branchId         Int
+  productVariantId Int
+  quantityChange   Int
+  type             StockLogType
+  reason           String?
+  referenceId      Int?
 
-  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
-  createdAt         DateTime       @default(now())
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
+  createdAt      DateTime       @default(now())
 
   @@index([branchId, createdAt])
 }
 
 model StockTransfer {
-  id            Int             @id @default(autoincrement())
-  fromBranchId  Int
-  toBranchId    Int
-  status        TransferStatus  @default(PENDING)
-  
+  id           Int            @id @default(autoincrement())
+  fromBranchId Int
+  toBranchId   Int
+  status       TransferStatus @default(PENDING)
+
   // A. Transfer Tracking Logic
-  shippedAt     DateTime?
-  receivedAt    DateTime?
+  shippedAt  DateTime?
+  receivedAt DateTime?
 
-  fromBranch    Branch          @relation("FromBranch", fields: [fromBranchId], references: [id])
-  toBranch      Branch          @relation("ToBranch", fields: [toBranchId], references: [id])
-  items         StockTransferItem[]
+  fromBranch Branch              @relation("FromBranch", fields: [fromBranchId], references: [id])
+  toBranch   Branch              @relation("ToBranch", fields: [toBranchId], references: [id])
+  items      StockTransferItem[]
 
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model StockTransferItem {
-  id                Int            @id @default(autoincrement())
-  transferId        Int
-  productVariantId  Int
-  quantity          Int
+  id               Int @id @default(autoincrement())
+  transferId       Int
+  productVariantId Int
+  quantity         Int
 
-  transfer          StockTransfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
-  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
+  transfer       StockTransfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
 }
 
 //////////////////////////////////////////////////////
@@ -327,29 +329,29 @@ model Supplier {
 }
 
 model Purchase {
-  id          Int            @id @default(autoincrement())
-  branchId    Int
-  supplierId  Int?
-  totalCost   Decimal        @db.Decimal(15,4)
-  status      PurchaseStatus @default(ORDERED) // D. Order Tracking
+  id         Int            @id @default(autoincrement())
+  branchId   Int
+  supplierId Int?
+  totalCost  Decimal        @db.Decimal(15, 4)
+  status     PurchaseStatus @default(ORDERED) // D. Order Tracking
 
-  branch      Branch         @relation(fields: [branchId], references: [id])
-  supplier    Supplier?      @relation(fields: [supplierId], references: [id])
-  items       PurchaseItem[]
+  branch   Branch         @relation(fields: [branchId], references: [id])
+  supplier Supplier?      @relation(fields: [supplierId], references: [id])
+  items    PurchaseItem[]
 
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model PurchaseItem {
-  id                Int            @id @default(autoincrement())
-  purchaseId        Int
-  productVariantId  Int
-  quantity          Int
-  cost              Decimal        @db.Decimal(15,4)
+  id               Int     @id @default(autoincrement())
+  purchaseId       Int
+  productVariantId Int
+  quantity         Int
+  cost             Decimal @db.Decimal(15, 4)
 
-  purchase          Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
+  purchase       Purchase       @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
 }
 
 //////////////////////////////////////////////////////
@@ -360,59 +362,59 @@ model Customer {
   id             Int          @id @default(autoincrement())
   name           String
   phone          String?
-  balance        Decimal      @default(0) @db.Decimal(15,4)
+  balance        Decimal      @default(0) @db.Decimal(15, 4)
   organizationId Int
   organization   Organization @relation(fields: [organizationId], references: [id])
   sales          Sale[]
 
-  createdAt      DateTime     @default(now())
+  createdAt DateTime @default(now())
 }
 
 model Sale {
-  id             Int            @id @default(autoincrement())
-  branchId       Int
-  userId         Int
-  customerId     Int?
-  totalAmount    Decimal        @db.Decimal(15,4)
-  paidAmount     Decimal        @default(0) @db.Decimal(15,4)
-  dueAmount      Decimal        @db.Decimal(15,4)
-  status         SaleStatus
-  paymentMethod  PaymentMethod?
+  id            Int            @id @default(autoincrement())
+  branchId      Int
+  userId        Int
+  customerId    Int?
+  totalAmount   Decimal        @db.Decimal(15, 4)
+  paidAmount    Decimal        @default(0) @db.Decimal(15, 4)
+  dueAmount     Decimal        @db.Decimal(15, 4)
+  status        SaleStatus
+  paymentMethod PaymentMethod?
 
-  branch         Branch         @relation(fields: [branchId], references: [id])
-  user           User           @relation(fields: [userId], references: [id])
-  customer       Customer?      @relation(fields: [customerId], references: [id])
-  items          SaleItem[]
+  branch   Branch     @relation(fields: [branchId], references: [id])
+  user     User       @relation(fields: [userId], references: [id])
+  customer Customer?  @relation(fields: [customerId], references: [id])
+  items    SaleItem[]
 
-  createdAt      DateTime       @default(now())
+  createdAt DateTime @default(now())
 }
 
 model SaleItem {
-  id                Int            @id @default(autoincrement())
-  saleId            Int
-  productVariantId  Int
-  quantity          Int
-  unitPrice         Decimal        @db.Decimal(15,4)
+  id               Int     @id @default(autoincrement())
+  saleId           Int
+  productVariantId Int
+  quantity         Int
+  unitPrice        Decimal @db.Decimal(15, 4)
 
-  sale              Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  productVariant    ProductVariant @relation(fields: [productVariantId], references: [id])
+  sale           Sale           @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id])
 }
 
 model Attendance {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  branchId  Int
-  date      DateTime
-  status    String   // PRESENT, ABSENT, etc.
-  user      User     @relation(fields: [userId], references: [id])
-  branch    Branch   @relation(fields: [branchId], references: [id])
+  id       Int      @id @default(autoincrement())
+  userId   Int
+  branchId Int
+  date     DateTime
+  status   String // PRESENT, ABSENT, etc.
+  user     User     @relation(fields: [userId], references: [id])
+  branch   Branch   @relation(fields: [branchId], references: [id])
 }
 
 model SalaryPayment {
   id        Int      @id @default(autoincrement())
   userId    Int
   branchId  Int
-  amount    Decimal  @db.Decimal(15,4)
+  amount    Decimal  @db.Decimal(15, 4)
   user      User     @relation(fields: [userId], references: [id])
   branch    Branch   @relation(fields: [branchId], references: [id])
   createdAt DateTime @default(now())
@@ -422,30 +424,30 @@ model Expense {
   id          Int      @id @default(autoincrement())
   branchId    Int
   description String
-  amount      Decimal  @db.Decimal(15,4)
+  amount      Decimal  @db.Decimal(15, 4)
   branch      Branch   @relation(fields: [branchId], references: [id])
   createdAt   DateTime @default(now())
 }
 
 model BonusRule {
-  id             Int          @id @default(autoincrement())
+  id             Int            @id @default(autoincrement())
   organizationId Int
   name           String
-  bonusAmount    Decimal      @db.Decimal(15,4)
-  organization   Organization @relation(fields: [organizationId], references: [id])
+  bonusAmount    Decimal        @db.Decimal(15, 4)
+  organization   Organization   @relation(fields: [organizationId], references: [id])
   bonusPayments  BonusPayment[]
 }
 
 model BonusPayment {
-  id        Int      @id @default(autoincrement())
+  id        Int        @id @default(autoincrement())
   userId    Int
   branchId  Int?
   ruleId    Int?
-  amount    Decimal  @db.Decimal(15,4)
-  user      User     @relation(fields: [userId], references: [id])
-  branch    Branch?  @relation(fields: [branchId], references: [id])
+  amount    Decimal    @db.Decimal(15, 4)
+  user      User       @relation(fields: [userId], references: [id])
+  branch    Branch?    @relation(fields: [branchId], references: [id])
   rule      BonusRule? @relation(fields: [ruleId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
 }
 
 model AuditLog {
