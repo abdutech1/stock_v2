@@ -10,6 +10,20 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: test_saas_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -18,40 +32,39 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: 'npm'                    # Now safe because package-lock.json exists
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci                       # Faster and cleaner with lock file
+        run: npm ci
 
       - name: Prisma Generate
         run: npx prisma generate
 
-      - name: Lint (if you have lint script)
+      - name: Wait for MySQL to be ready
+        run: |
+          echo "Waiting for MySQL..."
+          until mysqladmin ping -h 127.0.0.1 -P 3306 --silent; do
+            sleep 2
+          done
+          echo "MySQL is ready!"
+
+      - name: Run Prisma DB Setup
+        run: npx prisma db push --accept-data-loss
+        env:
+          DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"
+
+      - name: Lint (if exists)
         run: npm run lint --if-present
 
       - name: Build (if using TypeScript)
         run: npm run build --if-present
 
-      # === Test MySQL Database ===
-      - name: Start MySQL Test Database
-        uses: mirromutth/mysql-action@v1
-        with:
-          mysql version: '8.0'
-          mysql root password: 'root'
-          mysql database: 'test_saas_db'
-
-      - name: Run Prisma DB Setup
-        run: npx prisma db push --accept-data-loss
-        env:
-          DATABASE_URL: "mysql://root:root@localhost:3306/test_saas_db"
-
-      # === Run Tests ===
-      - name: Run tests
+      - name: Run tests (if any)
         run: npm test --if-present
         env:
-          DATABASE_URL: "mysql://root:root@localhost:3306/test_saas_db"
+          DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"
           JWT_SECRET: "test-secret-for-ci-only"
 
       - name: Summary
         if: always()
-        run: echo "✅ CI Pipeline finished successfully!"
+        run: echo "✅ CI Pipeline finished! Check the logs above to see which step passed or failed."
