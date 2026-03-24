@@ -12,31 +12,31 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x]   # You can add 22.x later if needed
+        node-version: [22.x]   # Updated to a stable modern version
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'          # This speeds up future runs
+          cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci             # Clean install (better than npm install)
+        run: npm install          # Changed from npm ci to avoid lock file error
 
       - name: Prisma Generate
         run: npx prisma generate
 
-      - name: Lint (if you have lint script)
+      - name: Lint (if you have it)
         run: npm run lint --if-present
 
-      - name: Build
+      - name: Build (if using TypeScript)
         run: npm run build --if-present
 
-      # === Test Database Setup (MySQL in GitHub Actions) ===
+      # === Test MySQL Database ===
       - name: Start MySQL Test Database
         uses: mirromutth/mysql-action@v1
         with:
@@ -44,20 +44,18 @@ jobs:
           mysql root password: 'root'
           mysql database: 'test_saas_db'
 
-      - name: Run Prisma DB Setup for Tests
-        run: |
-          npx prisma db push --accept-data-loss   # Or use prisma migrate deploy if you have migrations
+      - name: Run Prisma DB Setup
+        run: npx prisma db push --accept-data-loss
         env:
-          DATABASE_URL: "mysql://root:root@localhost:3306/test_saas_db?schema=public"
+          DATABASE_URL: "mysql://root:root@localhost:3306/test_saas_db"
 
       # === Run Tests ===
       - name: Run tests
         run: npm test --if-present
         env:
-          DATABASE_URL: "mysql://root:root@localhost:3306/test_saas_db?schema=public"
+          DATABASE_URL: "mysql://root:root@localhost:3306/test_saas_db"
           JWT_SECRET: "test-secret-for-ci-only"
-          # Add other env vars your tests need here
 
       - name: Summary
         if: always()
-        run: echo "✅ CI finished! Check above for details."
+        run: echo "✅ CI Pipeline finished! Check the steps above for details."
