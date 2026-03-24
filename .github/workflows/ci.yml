@@ -34,7 +34,7 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      # === Run everything from the backend folder ===
+      # === Everything runs inside backend/ folder ===
       - name: Install dependencies
         working-directory: ./backend
         run: npm ci
@@ -42,6 +42,8 @@ jobs:
       - name: Prisma Generate
         working-directory: ./backend
         run: npx prisma generate
+        env:
+          DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"   # Dummy URL for generate
 
       - name: Wait for MySQL
         run: |
@@ -57,11 +59,11 @@ jobs:
         env:
           DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"
 
-      - name: Lint (if exists)
+      - name: Lint
         working-directory: ./backend
         run: npm run lint --if-present
 
-      - name: Build (if using TypeScript)
+      - name: Build
         working-directory: ./backend
         run: npm run build --if-present
 
@@ -74,4 +76,4 @@ jobs:
 
       - name: Summary
         if: always()
-        run: echo "✅ CI Pipeline finished! (Backend folder structure detected)"
+        run: echo "✅ CI Pipeline finished!"
