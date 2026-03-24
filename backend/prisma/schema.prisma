@@ -182,6 +182,7 @@ model Branch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, name])
   @@index([organizationId])
 }
 
@@ -479,3 +480,5 @@ model LoginLog {
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
 }
+
+

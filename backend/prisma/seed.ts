@@ -1,132 +1,136 @@
-/// <reference types="node" />
+import { PrismaClient, UserRole, BranchRole, Plan, SaleStatus, PaymentMethod, StockLogType, TransferStatus, PriceType, PurchaseStatus } from '@prisma/client'
 
+// const prisma = new PrismaClient()
 import prisma from "../src/prismaClient.js";
 
 async function main() {
-  console.log("🌱 Seeding database...");
+  console.log('🌱 Starting database seeding...')
 
-  /* =========================
-     1️⃣ Categories
-     ========================= */
-  const shoe = await prisma.category.upsert({
-    where: { name: "Shoe" },
+  // 1. Create a Super Admin Organization (for system-level access)
+  const superOrg = await prisma.organization.upsert({
+    where: { slug: 'super-admin' },
     update: {},
-    create: { name: "Shoe" },
-  });
+    create: {
+      name: 'Super Admin Organization',
+      slug: 'super-admin',
+      plan: Plan.ENTERPRISE,
+      settings: {
+        currency: 'ETB',
+        timezone: 'Africa/Addis_Ababa',
+        taxRate: 15
+      }
+    }
+  })
 
-  const jacket = await prisma.category.upsert({
-    where: { name: "Jacket" },
+  // 2. Create Default Super Admin User
+  const superAdmin = await prisma.user.upsert({
+    where: { phoneNumber: '+251911000001' },
     update: {},
-    create: { name: "Jacket" },
-  });
+    create: {
+      name: 'System Super Admin',
+      phoneNumber: '+251911000001',
+      password: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: "password"
+      role: UserRole.SUPER_ADMIN,
+      organizationId: superOrg.id,
+      isActive: true
+    }
+  })
 
-  const tshirt = await prisma.category.upsert({
-    where: { name: "T-Shirt" },
+  // 3. Create a Sample Organization (This is what normal tenants will get)
+  const org = await prisma.organization.upsert({
+    where: { slug: 'demo-company' },
     update: {},
-    create: { name: "T-Shirt" },
-  });
+    create: {
+      name: 'Demo Trading PLC',
+      slug: 'demo-company',
+      plan: Plan.PRO,
+      settings: {
+        currency: 'ETB',
+        timezone: 'Africa/Addis_Ababa',
+        taxRate: 15
+      }
+    }
+  })
 
-  /* =========================
-     2️⃣ Price Categories
-     ========================= */
-  const shoe3000 = await prisma.pricecategory.create({
-    data: { fixedPrice: 3000, categoryId: shoe.id },
-  });
-
-  const jacket5000 = await prisma.pricecategory.create({
-    data: { fixedPrice: 5000, categoryId: jacket.id },
-  });
-
-  const tshirt2000 = await prisma.pricecategory.create({
-    data: { fixedPrice: 2000, categoryId: tshirt.id },
-  });
-
-  /* =========================
-     3️⃣ Users
-     ========================= */
-  await prisma.user.upsert({
-    where: { name: "Owner" },
+  // 4. Create Default Branch for the sample organization
+  const mainBranch = await prisma.branch.upsert({
+    where: { 
+      organizationId_name: {
+        organizationId: org.id,
+        name: 'Main Branch'
+      }
+    },
     update: {},
-    create: { name: "Owner", role: "OWNER" },
-  });
+    create: {
+      name: 'Main Branch',
+      organizationId: org.id
+    }
+  })
 
-  const employee1 = await prisma.user.upsert({
-    where: { name: "Employee 1" },
+  // 5. Create ORG_ADMIN user for the sample organization
+  const orgAdmin = await prisma.user.upsert({
+    where: { phoneNumber: '+251911000002' },
     update: {},
-    create: { name: "Employee 1", role: "EMPLOYEE" },
-  });
+    create: {
+      name: 'Demo Admin',
+      phoneNumber: '+251911000002',
+      password: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: "password"
+      role: UserRole.ORG_ADMIN,
+      organizationId: org.id,
+      isActive: true
+    }
+  })
 
-  const employee2 = await prisma.user.upsert({
-    where: { name: "Employee 2" },
+  // 6. Link ORG_ADMIN to the branch
+  await prisma.branchUser.upsert({
+    where: {
+      userId_branchId: {
+        userId: orgAdmin.id,
+        branchId: mainBranch.id
+      }
+    },
     update: {},
-    create: { name: "Employee 2", role: "EMPLOYEE" },
-  });
+    create: {
+      userId: orgAdmin.id,
+      branchId: mainBranch.id,
+      role: BranchRole.MANAGER
+    }
+  })
 
-  const employee3 = await prisma.user.upsert({
-    where: { name: "Employee 3" },
+  // 7. Create a sample Employee
+  const employee = await prisma.user.upsert({
+    where: { phoneNumber: '+251911000003' },
     update: {},
-    create: { name: "Employee 3", role: "EMPLOYEE" },
-  });
+    create: {
+      name: 'Abebe Kebede',
+      phoneNumber: '+251911000003',
+      password: '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: "password"
+      role: UserRole.EMPLOYEE,
+      organizationId: org.id,
+      isActive: true
+    }
+  })
 
-  /* =========================
-     4️⃣ Stock
-     ========================= */
-  await prisma.stock.createMany({
-    data: [
-      { priceCategoryId: shoe3000.id, purchasePrice: 2500, quantity: 10 },
-      { priceCategoryId: jacket5000.id, purchasePrice: 4200, quantity: 5 },
-      { priceCategoryId: tshirt2000.id, purchasePrice: 1500, quantity: 20 },
-    ],
-    skipDuplicates: true,
-  });
+  await prisma.branchUser.create({
+    data: {
+      userId: employee.id,
+      branchId: mainBranch.id,
+      role: BranchRole.CASHIER
+    }
+  })
 
-  /* =========================
-     5️⃣ Sales (MULTI EMPLOYEE)
-     ========================= */
-  await prisma.sale.createMany({
-    data: [
-      // Employee 1
-      {
-        employeeId: employee1.id,
-        priceCategoryId: shoe3000.id,
-        soldPrice: 3500,
-        quantity: 2,
-        bonus: 3500 * 2 - 3000 * 2,
-      },
-
-      // Employee 2
-      {
-        employeeId: employee2.id,
-        priceCategoryId: jacket5000.id,
-        soldPrice: 5200,
-        quantity: 1,
-        bonus: 5200 - 5000,
-      },
-      {
-        employeeId: employee2.id,
-        priceCategoryId: tshirt2000.id,
-        soldPrice: 2300,
-        quantity: 3,
-        bonus: 2300 * 3 - 2000 * 3,
-      },
-
-      // Employee 3
-      {
-        employeeId: employee3.id,
-        priceCategoryId: shoe3000.id,
-        soldPrice: 3300,
-        quantity: 1,
-        bonus: 3300 - 3000,
-      },
-    ],
-    skipDuplicates: true,
-  });
-
-  console.log("✅ Seeding completed successfully");
+  console.log('✅ Seeding completed successfully!')
+  console.log(`   Super Admin Phone : +251911000001`)
+  console.log(`   Demo Org Admin    : +251911000002 (password: "password")`)
+  console.log(`   Demo Employee     : +251911000003 (password: "password")`)
+  console.log(`   Organization Slug : demo-company`)
 }
 
 main()
-  .catch(console.error)
+  .catch((e) => {
+    console.error('❌ Seeding failed:', e)
+    process.exit(1)
+  })
   .finally(async () => {
-    await prisma.$disconnect();
-  });
+    await prisma.$disconnect()
+  })
