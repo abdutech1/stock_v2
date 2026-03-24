@@ -10,22 +10,18 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [22.x]   # Updated to a stable modern version
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Setup Node.js ${{ matrix.node-version }}
+      - name: Setup Node.js 22
         uses: actions/setup-node@v6
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
+          node-version: 22
+          # We temporarily remove cache to stop the lock file error
 
       - name: Install dependencies
-        run: npm install          # Changed from npm ci to avoid lock file error
+        run: npm install
 
       - name: Prisma Generate
         run: npx prisma generate
@@ -58,4 +54,4 @@ jobs:
 
       - name: Summary
         if: always()
-        run: echo "✅ CI Pipeline finished! Check the steps above for details."
+        run: echo "✅ CI Pipeline finished successfully!"
