@@ -6,32 +6,41 @@ import {
   getEmployeesController,
   getEmployeeController,
   getDeactivatedEmployeesController,
-  activateEmployeeController
+  activateEmployeeController,
+  transferEmployeeController
 } from "./user.controller.js";
 
 import { authorize } from "../../middleware/authorize.js";
-import { createEmployeeSchema, updateEmployeeSchema } from "../../schemas/user.schema.js";
+import { createEmployeeSchema, updateEmployeeSchema, transferEmployeeSchema } from "../../schemas/user.schema.js";
 import { validate } from "../../middleware/validate.js";
+import { UserRole } from "@prisma/client";
 
 const router = Router();
 
-router.get("/", authorize("OWNER", "EMPLOYEE"), getEmployeesController);
 
-router.use(authorize("OWNER"));
+router.get("/", authorize(UserRole.ORG_ADMIN, UserRole.EMPLOYEE), getEmployeesController);
 
-// router.get("/deactivated", getDeactivatedEmployeesController);
-// router.patch("/:id/activate", activateEmployeeController);
-// router.post("/", validate(createEmployeeSchema), createEmployeeController);
-// router.get("/", getEmployeesController);
-// router.get("/:id", getEmployeeController);
-// router.patch("/:id", validate(updateEmployeeSchema), updateEmployeeController);
-// router.delete("/:id", deactivateEmployeeController);
+router.get("/:id", authorize(UserRole.ORG_ADMIN, UserRole.EMPLOYEE), getEmployeeController);
 
-router.get("/deactivated", getDeactivatedEmployeesController);
-router.patch("/:id/activate", activateEmployeeController);
+
+router.use(authorize(UserRole.ORG_ADMIN));
+
+router.get("/list/deactivated", getDeactivatedEmployeesController);
+
+
+
 router.post("/", validate(createEmployeeSchema), createEmployeeController);
-router.get("/:id", getEmployeeController);
+
 router.patch("/:id", validate(updateEmployeeSchema), updateEmployeeController);
+
+router.patch("/:id/activate", activateEmployeeController);
+
 router.delete("/:id", deactivateEmployeeController);
+
+router.patch(
+  "/:id/transfer", 
+  validate(transferEmployeeSchema), 
+  transferEmployeeController 
+);
 
 export default router;

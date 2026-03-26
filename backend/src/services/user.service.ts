@@ -1,50 +1,63 @@
 import prisma from "../prismaClient.js";
 import bcrypt from "bcrypt";
-import { UserRole } from "../generated/prisma/enums.js";
+import { AppError } from "../utils/AppError.js";
+import { UserRole, BranchRole } from "@prisma/client";
 
-export interface CreateEmployeeInput {
+
+
+
+export async function createEmployee(data: {
   name: string;
   phoneNumber: string;
-  baseSalary?: number;
-  role?: UserRole;
-}
+  branchRole: BranchRole;
+  branchId: number;
+  organizationId: number;
+}) {
+  const branch = await prisma.branch.findFirst({
+    where: { id: data.branchId, organizationId: data.organizationId }
+  });
+  if (!branch) throw new AppError("Invalid branch selection for your organization", 400);
 
-export interface UpdateEmployeeInput {
-  name?: string;
-  phoneNumber?: string;
-  baseSalary?: number;
-  isActive?: boolean;
-}
+  const DEFAULT_PWD = "Password123!"; 
+  const hashedPassword = await bcrypt.hash(DEFAULT_PWD, 10);
 
+  return await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        name: data.name,
+        phoneNumber: data.phoneNumber,
+        password: hashedPassword,
+        role: UserRole.EMPLOYEE,
+        organizationId: data.organizationId,
+        mustChangePassword: true, 
+      }
+    });
 
-// Create employee
-export async function createEmployee(data: CreateEmployeeInput) {
-  const defaultPassword = "123456"; 
-  const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    await tx.branchUser.create({
+      data: {
+        userId: user.id,
+        branchId: data.branchId,
+        role: data.branchRole
+      }
+    });
 
-  return await prisma.user.create({
-    data: {
-      name: data.name,
-      phoneNumber: data.phoneNumber,
-      password: hashedPassword,      
-      mustChangePassword: true,      
-      baseSalary: data.baseSalary ?? 0,
-      role: UserRole.EMPLOYEE,
-      isActive: true,                
-    },
+    
+    const { password, ...userWithoutPassword } = user;
+    return userWithoutPassword;
   });
 }
 
-// Update employee
-export async function updateEmployee(id: number, data: UpdateEmployeeInput) {
-  const user = await prisma.user.findUnique({ where: { id } });
 
-  if (!user) {
-    throw new Error("User not found");
-  }
+export async function updateEmployee(id: number, organizationId: number, data: any) {
+  const user = await prisma.user.findFirst({ 
+    where: { id, organizationId } 
+  });
 
-  if (user.role === UserRole.OWNER) {
-    throw new Error("OWNER role cannot be modified");
+  if (!user) throw new AppError("Employee not found", 404);
+  
+  // Prevent editing the Org Admin via this route
+  if (user.role === UserRole.ORG_ADMIN) {
+    throw new AppError("Cannot modify Organization Admin details here", 403);
   }
 
   return prisma.user.update({
@@ -54,27 +67,14 @@ export async function updateEmployee(id: number, data: UpdateEmployeeInput) {
 }
 
 
-// Soft-delete employee
-
-
-// Add currentUserId as a second parameter
-export async function deactivateEmployee(id: number, currentUserId: number) {
-  const user = await prisma.user.findUnique({
-    where: { id },
+export async function deactivateEmployee(id: number, organizationId: number, currentUserId: number) {
+  const user = await prisma.user.findFirst({
+    where: { id, organizationId },
   });
 
-  if (!user) {
-    throw new Error("User not found");
-  }
-
-  if (user.role === "OWNER") {
-    throw new Error("Owner account cannot be deactivated");
-  }
-
-  // Use currentUserId here instead of req.user.id
-  if (user.id === currentUserId) {
-    throw new Error("You cannot deactivate your own account");
-  }
+  if (!user) throw new AppError("User not found", 404);
+  if (user.role === UserRole.ORG_ADMIN) throw new AppError("Owner cannot be deactivated", 403);
+  if (user.id === currentUserId) throw new AppError("You cannot deactivate yourself", 400);
 
   return await prisma.user.update({
     where: { id },
@@ -82,42 +82,30 @@ export async function deactivateEmployee(id: number, currentUserId: number) {
   });
 }
 
-export async function getEmployees() {
+
+export async function getEmployees(organizationId: number) {
   return await prisma.user.findMany({
+    where: { 
+      organizationId,
+      role: UserRole.EMPLOYEE // Only return staff, not the owner
+    },
+    include: {
+      branches: {
+        include: { branch: { select: { name: true } } }
+      }
+    },
     orderBy: { createdAt: "desc" },
   });
 }
 
 
-// Get single employee by ID
-export async function getEmployeeById(id: number) {
-  return await prisma.user.findUnique({
-    where: { id },
-  });
-}
-
-
-// Get deactivated employees
-export async function getDeactivatedEmployees() {
-  return await prisma.user.findMany({
-    where: { isActive: false },
-    orderBy: { createdAt: "desc" },
-  });
-}
-
-
-export async function activateEmployee(id: number) {
-  const employee = await prisma.user.findUnique({
-    where: { id },
+export async function activateEmployee(id: number, organizationId: number) {
+  const user = await prisma.user.findFirst({
+    where: { id, organizationId },
   });
 
-  if (!employee) {
-    throw new Error("Employee not found");
-  }
-
-  if (employee.isActive) {
-    throw new Error("Employee is already active");
-  }
+  if (!user) throw new AppError("Employee not found", 404);
+  if (user.isActive) throw new AppError("Employee is already active", 400);
 
   return await prisma.user.update({
     where: { id },
@@ -126,3 +114,57 @@ export async function activateEmployee(id: number) {
 }
 
 
+export async function getEmployeeById(id: number, organizationId: number) {
+  const user = await prisma.user.findFirst({
+    where: { id, organizationId },
+    include: {
+      branches: {
+        include: { branch: { select: { name: true } } }
+      }
+    }
+  });
+
+  if (!user) throw new AppError("Employee not found", 404);
+  return user;
+}
+
+
+export async function getDeactivatedEmployees(organizationId: number) {
+  return await prisma.user.findMany({
+    where: { 
+      organizationId,
+      isActive: false,
+      role: UserRole.EMPLOYEE 
+    },
+    include: {
+      branches: {
+        include: { branch: { select: { name: true } } }
+      }
+    },
+    orderBy: { updatedAt: "desc" },
+  });
+}
+
+
+/**
+ * TRANSFER EMPLOYEE
+ * Moves an employee from one branch to another within the same Organization.
+ */
+export async function transferEmployee(
+  employeeId: number, 
+  organizationId: number, 
+  newBranchId: number
+) {
+  // 1. Verify the new branch belongs to this Org
+  const targetBranch = await prisma.branch.findFirst({
+    where: { id: newBranchId, organizationId }
+  });
+  if (!targetBranch) throw new AppError("Target branch not found in your organization", 404);
+
+  // 2. Update the BranchUser record
+  // We use updateMany because a user *should* only have one active branch link in this specific flow
+  return await prisma.branchUser.updateMany({
+    where: { userId: employeeId },
+    data: { branchId: newBranchId }
+  });
+}

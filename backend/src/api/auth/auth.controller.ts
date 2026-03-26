@@ -1,128 +1,123 @@
 import { Request, Response, CookieOptions } from "express";
-import {
-  registerOwner,
-  login,
-  changePassword,
-  resetEmployeePassword,
-   getMe
+import { catchAsync } from "../../utils/catchAsync.js";
+import { AppError } from "../../utils/AppError.js";
+
+import { 
+  login, 
+  changePassword, 
+  resetEmployeePassword, 
+  getMe,
+  switchBranch,
+  getMyBranches
 } from "../../services/auth.service.js";
 
-export async function registerOwnerController(
-  req: Request,
-  res: Response
-) {
-  try {
-    const owner = await registerOwner(req.body);
-    res.status(201).json(owner);
-  } catch (err: any) {
-    res.status(400).json({ message: err.message });
-  }
-}
-
-
-// const cookieOptions = {
-//   httpOnly: true,
-//   secure: process.env.NODE_ENV === "production",
-//   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-//   maxAge: 8 * 60 * 60 * 1000,
-// } as const; 
 
 const cookieOptions: CookieOptions = {
   httpOnly: true,
-  secure: false, // Must be false for http://192.168...
-  sameSite: "lax", // 'lax' is best for local IP testing
+  secure: process.env.NODE_ENV === "production",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
   path: "/",
   maxAge: 8 * 60 * 60 * 1000,
 };
 
 
+export const loginController = catchAsync(async (req: Request, res: Response) => {
+  const { phoneNumber, password } = req.body;
 
-export async function loginController(req: Request, res: Response) {
-  try {
-    const { phoneNumber, password } = req.body;
+  // Pass the third argument for metadata logging
+  const { token, user } = await login(phoneNumber, password, {
+    ip: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
 
-    const { token, user } = await login(phoneNumber, password, {
-      ip: req.ip,
-      userAgent: req.headers["user-agent"],
-    });
+  res.cookie("token", token, cookieOptions);
 
-    res.cookie("token", token, cookieOptions);
-
-    res.status(200).json({
-      success: true,
-      user,
-    });
-  } catch (err: any) {
-    res.status(401).json({
-      success: false,
-      message: err.message || "Login failed",
-    });
-  }
-}
+  res.status(200).json({
+    status: "success",
+    data: { user },
+  });
+});
 
 
-export function logoutController(_: Request, res: Response) {
+export const logoutController = (req: Request, res: Response) => {
   res.clearCookie("token", cookieOptions);
-
-  res.json({ success: true, message: "Logged out successfully" });
-}
-
-
-
-export async function changePasswordController(
-  req: Request,
-  res: Response
-) {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const { oldPassword, newPassword } = req.body;
-
-    await changePassword(req.user.id, oldPassword, newPassword);
-
-    res.json({ message: "Password changed successfully" });
-  } catch (err: any) {
-    res.status(400).json({ message: err.message });
-  }
-}
+  res.status(200).json({ 
+    status: "success", 
+    message: "Logged out successfully" 
+  });
+};
 
 
-export async function resetEmployeePasswordController(
-  req: Request,
-  res: Response
-) {
-  try {
-    const { employeeId } = req.body; 
-    
-    const tempPassword = await resetEmployeePassword(employeeId);
+export const meController = catchAsync(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Unauthorized", 401);
 
-    res.json({
-      message: "Password reset successful",
-      tempPassword,
-    });
-  } catch (err: any) {
-    res.status(400).json({ message: err.message });
-  }
-}
+  const user = await getMe(req.user.id);
+
+  res.status(200).json({
+    status: "success",
+    data: { user },
+  });
+});
 
 
+export const changePasswordController = catchAsync(async (req: Request, res: Response) => {
+  if (!req.user) throw new AppError("Unauthorized", 401);
+
+  const { oldPassword, newPassword } = req.body;
+  await changePassword(req.user.id, oldPassword, newPassword);
+
+  res.status(200).json({ 
+    status: "success", 
+    message: "Password changed successfully" 
+  });
+});
 
 
-export async function meController(req: Request, res: Response) {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+export const resetEmployeePasswordController = catchAsync(async (req: Request, res: Response) => {
+  const { employeeId } = req.body; 
+  const organizationId = (req as any).user.organizationId; // Get from auth middleware
+  
+  // Pass organizationId to ensure the admin only resets their own staff
+  const tempPassword = await resetEmployeePassword(employeeId, organizationId);
 
-    const user = await getMe(req.user.id);
+  res.status(200).json({
+    status: "success",
+    message: "Password reset successful",
+    data: { tempPassword },
+  });
+});
 
-    res.json({
-      success: true,
-      user,
-    });
-  } catch (err: any) {
-    res.status(401).json({ message: err.message });
-  }
-}
+
+
+export const switchBranchController = catchAsync(async (req: Request, res: Response) => {
+  const { branchId } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError("Unauthorized", 401);
+
+  const { token, user } = await switchBranch(userId, Number(branchId));
+
+  // Overwrite the existing cookie with the new branch context
+  res.cookie("token", token, cookieOptions);
+
+  res.status(200).json({
+    status: "success",
+    message: `Switched to branch ID: ${branchId}`,
+    data: { user, branchId }
+  });
+});
+
+
+export const getMyBranchesController = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.id;
+
+  if (!userId) throw new AppError("Unauthorized", 401);
+
+  const branches = await getMyBranches(userId);
+
+  res.status(200).json({
+    status: "success",
+    results: branches.length,
+    data: { branches }
+  });
+});

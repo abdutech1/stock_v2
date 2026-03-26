@@ -143,6 +143,8 @@ model User {
   role           UserRole
   organizationId Int
   isActive       Boolean  @default(true)
+  mustChangePassword Boolean   @default(true)
+  lastLoginAt        DateTime?
 
   organization   Organization    @relation(fields: [organizationId], references: [id])
   branches       BranchUser[]
@@ -479,6 +481,7 @@ model LoginLog {
   ip        String?
   user      User     @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+  userAgent String?
 }
 
 

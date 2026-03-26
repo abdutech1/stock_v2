@@ -21,8 +21,13 @@ import bonusRuleRoutes from "./api/bonusRules/bonus.routes.js";
 import bonusRoutes from "./api/bonus/bonus.routes.js";
 import attendanceRoutes from "./api/attendance/attendance.routes.js";
 import salaryPreviewRoutes from "./api/salaryPreview/salaryPreview.routes.js";
-import adminRoutes from './api/admin/admin.routes.js'
+// import adminRoutes from './api/admin/admin.routes.js'
+import superAdminRoutes from "./api/superAdmin/superAdmin.routes.js";
 import cookieParser from "cookie-parser";
+
+import { globalErrorHandler } from "./middleware/errorMiddleware.js";
+
+import { UserRole } from "@prisma/client";
 
 
 
@@ -74,28 +79,41 @@ app.get("/health", (_, res) => {
 
 app.use(authenticate);
 
+// 1. GLOBAL SYSTEM ROUTES (Super Admin only)
+app.use("/api/system", authorize(UserRole.SUPER_ADMIN), superAdminRoutes);
+
+// 2. USER & STAFF MANAGEMENT
 app.use("/api/users", userRoutes);
+
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/salary-preview", salaryPreviewRoutes);
-
-// Owner-only routes
-app.use("/api/salaries", authorize("OWNER"), salaryRoutes);
-
-app.use("/api/stocks", authorize("OWNER"), stockRoutes);
-app.use("/api/expenses", authorize("OWNER"), expenseRoutes);
-
-// Shared or specific role routes
 app.use("/api/reports", reportsRoutes);
 app.use("/api/bonus-rules", bonusRuleRoutes);
 app.use("/api/bonuses", bonusRoutes);
 app.use("/api/sales", saleRouter);
-app.use("/api/categories", authorize("OWNER", "EMPLOYEE"), categoryRoutes);
-app.use("/api/price-categories", authorize("OWNER", "EMPLOYEE"), priceCategoryRoutes);
-app.use("/api/admin", adminRoutes);
 
+// Owner-only routes
+app.use("/api/salaries", authorize(UserRole.ORG_ADMIN), salaryRoutes);
+app.use("/api/stocks", authorize(UserRole.ORG_ADMIN), stockRoutes);
+app.use("/api/expenses", authorize(UserRole.ORG_ADMIN), expenseRoutes);
+
+// Shared or specific role routes
+
+// app.use("/api/admin", adminRoutes);
+
+
+app.use("/api/categories", authorize(UserRole.ORG_ADMIN, UserRole.EMPLOYEE), categoryRoutes);
+app.use("/api/price-categories", authorize(UserRole.ORG_ADMIN, UserRole.EMPLOYEE), priceCategoryRoutes);
+
+// app.use("/api/admin", authorize(UserRole.SUPER_ADMIN, UserRole.ORG_ADMIN), adminRoutes);
+
+
+app.use(globalErrorHandler);
 /* =========================
    SERVER
    ========================= */
+   
+   
 const PORT = Number(process.env.PORT) || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

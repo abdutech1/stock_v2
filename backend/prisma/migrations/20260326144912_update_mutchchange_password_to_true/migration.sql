@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `user` MODIFY `mustChangePassword` BOOLEAN NOT NULL DEFAULT true;

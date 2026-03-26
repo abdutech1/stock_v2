@@ -1,120 +1,101 @@
 import { Request, Response } from "express";
+import { AppError } from "@/utils/AppError.js";
 import {
   createEmployee,
   updateEmployee,
   deactivateEmployee,
   getEmployees,
   getEmployeeById,
-  getDeactivatedEmployees,
-  activateEmployee
+  activateEmployee,
+  getDeactivatedEmployees
 } from "../../services/user.service.js";
 
-export async function createEmployeeController(req: Request, res: Response) {
-  try {
-    const { name, phoneNumber, baseSalary, role } = req.body;
-    const employee = await createEmployee({ name, phoneNumber, baseSalary, role });
-    res.status(201).json(employee);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
+import { catchAsync } from "../../utils/catchAsync.js";
+import * as userService from "../../services/user.service.js";
 
-// Update employee
-export async function updateEmployeeController(req: Request, res: Response) {
-  try {
-    const id = Number(req.params.id);
+
+
+export const createEmployeeController = catchAsync(async (req: Request, res: Response) => {
+  const { name, phoneNumber, branchRole, branchId } = req.body;
+  const organizationId = (req as any).user.organizationId;
+
+  const employee = await userService.createEmployee({ 
+    name, phoneNumber, branchRole, branchId, organizationId 
+  });
+
+  res.status(201).json({ status: "success", data: employee });
+});
+
+
+export const getEmployeesController = catchAsync(async (req: Request, res: Response) => {
+  const organizationId = (req as any).user.organizationId;
+  const employees = await userService.getEmployees(organizationId);
+  
+  res.json({ status: "success", results: employees.length, data: employees });
+});
+
+
+export  const  updateEmployeeController = catchAsync(async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+    const organizationId = (req as any).user.organizationId;
     const updates = req.body;
-    const employee = await updateEmployee(id, updates);
-    res.json(employee);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
 
-// Deactivate employee
-export async function deactivateEmployeeController(req: Request, res: Response) {
-  try {
-    const id = Number(req.params.id);
-    
-    // Extract the logged-in user's ID from req.user
-    // Make sure your Auth middleware is working correctly!
+    const employee = await updateEmployee(id, organizationId, updates);
+    res.json({ status: "success", data: employee });
+})
+
+
+export const  deactivateEmployeeController = catchAsync(async (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+    const organizationId = (req as any).user.organizationId;
     const currentUserId = (req as any).user.id; 
 
-    const employee = await deactivateEmployee(id, currentUserId);
+    const employee = await deactivateEmployee(id, organizationId, currentUserId);
     
-    res.json({ message: "Employee deactivated", employee });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
-
-// Get all employees
+    res.json({ status: "success", message: "Employee deactivated", data: employee });
+})
 
 
-export async function getEmployeesController(
-  req: Request,
-  res: Response
-) {
-  try {
-    const employees = await getEmployees();
-    res.json(employees);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
+export const  getEmployeeController = catchAsync(async (req: Request, res: Response) => {
+      const id = Number(req.params.id);
+      const organizationId = (req as any).user.organizationId;
+      const employee = await getEmployeeById(id, organizationId);
+      res.json({ status: "success", data: employee });
+})
 
-
-// Get single employee
-export async function getEmployeeController(req: Request, res: Response) {
-  try {
-    const id = Number(req.params.id);
-    
-    const employee = await getEmployeeById(id);
-
-  
-
-
-    if (!employee) return res.status(404).json({ message: "Employee not found" });
-
-      
-    res.json(employee);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
-
-
-// Get deactivated employees
-export async function getDeactivatedEmployeesController(
-  req: Request,
-  res: Response
-) {
-  try {
-    const employees = await getDeactivatedEmployees();
-    res.json(employees);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
-
-export async function activateEmployeeController(
-  req: Request,
-  res: Response
-) {
-  try {
-    const id = Number(req.params.id);
-
-    if (isNaN(id)) {
-      return res.status(400).json({ message: "Invalid employee ID" });
-    }
-
-    const employee = await activateEmployee(id);
-
+ export const  activateEmployeeController = catchAsync(async(req: Request, res: Response) => {
+  const id = Number(req.params.id);
+    const organizationId = (req as any).user.organizationId;
+    const employee = await activateEmployee(id, organizationId);
     res.json({
+      status: "success",
       message: "Employee activated",
-      employee,
+      data: employee,
     });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
+ })
+
+export const getDeactivatedEmployeesController = catchAsync(async (req: Request, res: Response) => {
+    const organizationId = (req as any).user.organizationId;
+    const employees = await getDeactivatedEmployees(organizationId);
+    res.json({ 
+      status: "success", 
+      data: employees 
+    });
+})
+
+
+
+export const transferEmployeeController = catchAsync(async (req: Request, res: Response) => {
+  const employeeId = Number(req.params.id);
+  const { newBranchId } = req.body;
+  const organizationId = (req as any).user.organizationId;
+
+  if (!newBranchId) throw new AppError("New branch ID is required", 400);
+
+  await userService.transferEmployee(employeeId, organizationId, Number(newBranchId));
+
+  res.status(200).json({
+    status: "success",
+    message: "Employee transferred to new branch successfully"
+  });
+});

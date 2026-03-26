@@ -1,157 +1,109 @@
 import { Request, Response } from "express";
 import prisma from "../../prismaClient.js";
-import {
-  createOrUpdateStock,
-  getTotalPurchaseValue,
-  getTotalFixedValue,
+import { catchAsync } from "../../utils/catchAsync.js";
+import { AppError } from "../../utils/AppError.js";
+import { 
+  createOrUpdateStock, 
+  getTotalPurchaseValue, 
+  getTotalSellingValue 
 } from "../../services/stock.service.js";
 
-export async function registerStock(req: Request, res: Response) {
-  try {
-    const stock = await createOrUpdateStock(req.body);
-    res.status(201).json({
-      message: "Stock registered/updated successfully",
-      stock,
-    });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
 
-export async function updateStock(req: Request, res: Response) {
-  try {
-    const priceCategoryId = Number(req.params.priceCategoryId);
+// Register / Create (No changes needed, but here it is for context)
+export const registerStock = catchAsync(async (req: Request, res: Response) => {
+  const branchId = req.user?.branchId;
+  if (!branchId) throw new AppError("No active branch selected", 400);
 
-    // Validate existence of stock first
-    const stockToUpdate = await prisma.stock.findUnique({
-      where: { priceCategoryId },
-    });
+  // We override branchId from the auth context so the client can't "spoof" it
+  const stock = await createOrUpdateStock({
+    ...req.body,
+    branchId 
+  });
 
-    if (!stockToUpdate) {
-      return res.status(404).json({ message: "Stock not found" });
+  res.status(201).json({ status: "success", data: stock });
+});
+
+// Update (Now uses variantId from URL + branchId from Auth)
+export const updateStock = catchAsync(async (req: Request, res: Response) => {
+  const variantId = Number(req.params.variantId); // From URL
+  const branchId = req.user?.branchId;           // From Auth Session
+  const orgId = req.user?.organizationId;       // From Auth Session
+
+  if (!branchId) throw new AppError("Branch context missing", 400);
+
+  // 1. Verify existence AND ownership (Multi-tenant check)
+  const stock = await prisma.stock.findFirst({
+    where: { 
+      branchId, 
+      productVariantId: variantId,
+      branch: { organizationId: orgId } // Security: Branch must belong to user's Org
     }
+  });
 
-    //Destructure validated data from req.body
-    const { purchasePrice, quantity } = req.body;
+  if (!stock) throw new AppError("Stock not found in your organization", 404);
 
-    //Prevent update if sales exist (Business Logic Safety)
-    const saleCount = await prisma.saleItem.count({
-      where: { priceCategoryId },
-    });
-
-    if (saleCount > 0) {
-      return res.status(400).json({
-        message:
-          "Cannot modify stock because sales records exist for this item",
-      });
+  // 2. Business Logic: Block if sales exist
+  const saleCount = await prisma.saleItem.count({
+    where: { 
+      productVariantId: variantId, 
+      sale: { branchId } 
     }
+  });
 
-    // Perform the update
+  if (saleCount > 0) throw new AppError("Cannot modify stock: sales records exist", 400);
 
-    const stock = await prisma.stock.update({
-      where: { priceCategoryId },
-      data: {
-        ...(purchasePrice !== undefined && { purchasePrice }),
-        ...(quantity !== undefined && { quantity }),
-      },
-    });
-
-    res.json({
-      message: "Stock updated successfully",
-      stock,
-    });
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
-
-export async function getStockBySubcategory(req: Request, res: Response) {
-  try {
-    const priceCategoryId = Number(req.params.priceCategoryId);
-
-    const stock = await prisma.stock.findUnique({
-      where: { priceCategoryId },
-      include: { pricecategory: true },
-    });
-
-    if (!stock) return res.status(404).json({ message: "Stock not found" });
-
-    res.json(stock);
-  } catch (error: any) {
-    res.status(400).json({ message: error.message });
-  }
-}
-
-export async function deleteStock(req: Request, res: Response) {
-  try {
-    const priceCategoryId = Number(req.params.priceCategoryId);
-
-    const stock = await prisma.stock.findUnique({
-      where: { priceCategoryId },
-    });
-
-    if (!stock) {
-      return res.status(404).json({
-        message: "Stock not found",
-      });
+  // 3. Perform update
+  const { costPrice, quantity } = req.body;
+  const updatedStock = await prisma.stock.update({
+    where: { id: stock.id },
+    data: { 
+      quantity, 
+      productVariant: { update: { costPrice } } 
     }
+  });
 
-    //block delete if sales exist
-    const saleCount = await prisma.saleItem.count({
-      where: {
-        priceCategoryId: priceCategoryId,
-      },
-    });
+  res.json({ status: "success", data: updatedStock });
+});
 
-    if (saleCount > 0) {
-      return res.status(400).json({
-        message:
-          "Cannot Delete stock because sales records exist for this item",
-      });
+
+
+// Get Valuation (Scoped to User's Branch)
+export const getBranchValuation = catchAsync(async (req: Request, res: Response) => {
+  const branchId = req.user?.branchId;
+  if (!branchId) throw new AppError("Branch ID is required", 400);
+
+  const [purchaseValue, sellingValue] = await Promise.all([
+    getTotalPurchaseValue(branchId),
+    getTotalSellingValue(branchId)
+  ]);
+
+  res.json({
+    status: "success",
+    data: { purchaseValue, sellingValue }
+  });
+});
+
+// Delete (Matched to the simplified pattern)
+export const deleteStock = catchAsync(async (req: Request, res: Response) => {
+  const variantId = Number(req.params.variantId);
+  const branchId = req.user?.branchId;
+
+  if (!branchId) throw new AppError("No branch selected", 400);
+
+  const saleCount = await prisma.saleItem.count({
+    where: { productVariantId: variantId, sale: { branchId } }
+  });
+
+  if (saleCount > 0) throw new AppError("Cannot delete: linked to sales", 400);
+
+  await prisma.stock.delete({
+    where: { 
+        branchId_productVariantId: { 
+            branchId, 
+            productVariantId: variantId 
+        } 
     }
+  });
 
-    await prisma.stock.delete({
-      where: { priceCategoryId },
-    });
-
-    res.json({ message: "Stock deleted successfully" });
-  } catch (error: any) {
-    console.error(error); 
-    res.status(500).json({ message: "Internal server error" });
-  }
-}
-
-// Owner capital (purchase price)
-export async function getTotalPurchaseValueController(
-  req: Request,
-  res: Response,
-) {
-  try {
-    const total = await getTotalPurchaseValue();
-    res.json({
-      type: "PURCHASE_VALUE",
-      total,
-    });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-}
-
-// Potential selling value (fixed price)
-export async function getTotalFixedValueController(
-  req: Request,
-  res: Response,
-) {
-  try {
-    const total = await getTotalFixedValue();
-    res.json({
-      type: "FIXED_VALUE",
-      total,
-    });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-}
-
-
-
+  res.status(204).send(); 
+});

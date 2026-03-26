@@ -1,94 +1,106 @@
+
 import prisma from "../prismaClient.js";
+import { Prisma } from "@prisma/client";
 
 export interface CreateStockInput {
-  priceCategoryId: number;
-  purchasePrice: number;
+  productVariantId: number;
+  branchId: number;      // Mandatory for multi-tenancy
+  costPrice: number;     // Renamed from purchasePrice to match ProductVariant
   quantity: number;
 }
 
-
 export async function createOrUpdateStock({
-  priceCategoryId,
-  purchasePrice,
+  productVariantId,
+  branchId,
+  costPrice,
   quantity,
 }: CreateStockInput) {
   if (quantity <= 0) {
     throw new Error("Quantity must be greater than zero");
   }
 
-  const priceCategory = await prisma.pricecategory.findUnique({
-    where: { id: priceCategoryId },
+  // 1. Verify the variant exists
+  const variant = await prisma.productVariant.findUnique({
+    where: { id: productVariantId },
   });
 
-  if (!priceCategory) {
-    throw new Error("Price category not found");
+  if (!variant) {
+    throw new Error("Product variant not found");
   }
 
+  // 2. Find existing stock for THIS SPECIFIC BRANCH
   const existingStock = await prisma.stock.findUnique({
-    where: { priceCategoryId },
+    where: {
+      branchId_productVariantId: {
+        branchId,
+        productVariantId,
+      },
+    },
   });
 
-  // 1️⃣ If stock exists
+  // 3. Update existing or Create new
   if (existingStock) {
-    let newPurchasePrice = existingStock.purchasePrice;
+    // Weighted average calculation using Decimal for precision
+    const oldQty = new Prisma.Decimal(existingStock.quantity);
+    const oldPrice = new Prisma.Decimal(variant.costPrice); // Using variant's current cost
+    const newQty = new Prisma.Decimal(quantity);
+    const newPrice = new Prisma.Decimal(costPrice);
 
-    // If price changed → calculate weighted average
-    if (existingStock.purchasePrice !== purchasePrice) {
-      const totalOldValue =
-        existingStock.quantity * existingStock.purchasePrice;
+    const totalOldValue = oldQty.times(oldPrice);
+    const totalNewValue = newQty.times(newPrice);
+    const totalQty = oldQty.plus(newQty);
+    
+    const weightedAvg = totalOldValue.plus(totalNewValue).div(totalQty);
 
-      const totalNewValue = quantity * purchasePrice;
-
-      newPurchasePrice =
-        (totalOldValue + totalNewValue) /
-        (existingStock.quantity + quantity);
-    }
-
-    return prisma.stock.update({
-      where: { priceCategoryId },
-      data: {
-        quantity: { increment: quantity },
-        purchasePrice: newPurchasePrice,
-      },
-    });
+    return await prisma.$transaction([
+      // Update the stock quantity
+      prisma.stock.update({
+        where: { id: existingStock.id },
+        data: { quantity: { increment: quantity } },
+      }),
+      // Update the Variant's cost price (Global for the product)
+      prisma.productVariant.update({
+        where: { id: productVariantId },
+        data: { costPrice: weightedAvg },
+      })
+    ]);
   }
 
-  // 2️⃣ Create new stock
+  // 4. Create new stock record for this branch
   return prisma.stock.create({
     data: {
-      priceCategoryId,
-      purchasePrice,
+      branchId,
+      productVariantId,
       quantity,
     },
   });
 }
 
+// Total capital based on cost price (Scoped by Branch)
+export async function getTotalPurchaseValue(branchId: number) {
+  const stocks = await prisma.stock.findMany({
+    where: { branchId },
+    include: { productVariant: true },
+  });
 
-// Total capital based on purchase price
-export async function getTotalPurchaseValue() {
-  const stocks = await prisma.stock.findMany();
-
-  const total = stocks.reduce((sum, stock) => {
-    return sum + stock.quantity * stock.purchasePrice;
-  }, 0);
-
-  return total;
+  return stocks.reduce((sum, stock) => {
+    const cost = new Prisma.Decimal(stock.productVariant.costPrice);
+    return sum.plus(cost.times(stock.quantity));
+  }, new Prisma.Decimal(0));
 }
 
-// Total potential value based on fixed price
-export async function getTotalFixedValue() {
+// Total potential value based on selling price (Scoped by Branch)
+export async function getTotalSellingValue(branchId: number) {
   const stocks = await prisma.stock.findMany({
+    where: { branchId },
     include: {
-      pricecategory: true,
+      productVariant: true,
     },
   });
 
-  const total = stocks.reduce((sum, stock) => {
-    return sum + stock.quantity * stock.pricecategory.fixedPrice;
-  }, 0);
-
-  return total;
+  return stocks.reduce((sum, stock) => {
+    const price = new Prisma.Decimal(stock.productVariant.sellingPrice);
+    return sum.plus(price.times(stock.quantity));
+  }, new Prisma.Decimal(0));
 }
-
-
 

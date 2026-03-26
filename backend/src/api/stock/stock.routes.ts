@@ -1,28 +1,21 @@
 import express from "express";
-import { 
-  registerStock, 
-  getStockBySubcategory, 
-  updateStock, 
-  deleteStock, 
-  getTotalPurchaseValueController, 
-  getTotalFixedValueController,
-} from "./stock.controller.js";
+import * as stockController from "./stock.controller.js";
 import { validate } from "../../middleware/validate.js";
 import { registerStockSchema, updateStockSchema } from "../../schemas/stock.schema.js";
 
 const router = express.Router();
 
-router.get("/valuation/purchase", getTotalPurchaseValueController);
-router.get("/valuation/fixed", getTotalFixedValueController);
+// Valuation route usually needs a branch filter
+router.get("/valuation", stockController.getBranchValuation);
 
-// Create / Register
-router.post("/", validate(registerStockSchema), registerStock);
+// Create
+router.post("/", validate(registerStockSchema), stockController.registerStock);
 
-router.get("/subcategory/:priceCategoryId", getStockBySubcategory);
+// Get specific variant stock in a specific branch
+router.get("/branch/:branchId/variant/:variantId", stockController.updateStock);
 
-// Update
-router.patch("/:priceCategoryId", validate(updateStockSchema), updateStock);
-
-router.delete("/:priceCategoryId", deleteStock);
+// Update & Delete using composite identifiers
+router.patch("/variant/:variantId", validate(updateStockSchema), stockController.updateStock);
+router.delete("/variant/:variantId", stockController.deleteStock);
 
 export default router;
