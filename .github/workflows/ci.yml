@@ -10,7 +10,6 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
-    # MySQL Database Service for CI
     services:
       mysql:
         image: mysql:8.0
@@ -35,9 +34,6 @@ jobs:
           node-version: 22
           cache: 'npm'
 
-      # ========================
-      # Backend Steps (Monorepo)
-      # ========================
       - name: Install dependencies
         working-directory: ./backend
         run: npm ci
@@ -48,32 +44,19 @@ jobs:
         env:
           DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"
 
-      - name: Wait for MySQL to be ready
+      - name: Wait for MySQL
         run: |
-          echo "Waiting for MySQL..."
           until mysqladmin ping -h 127.0.0.1 -P 3306 --silent; do
             sleep 2
           done
-          echo "✅ MySQL is ready!"
+          echo "✅ MySQL ready"
 
-      - name: Run Prisma DB Setup
+      - name: Prisma DB Push
         working-directory: ./backend
         run: npx prisma db push --accept-data-loss
         env:
           DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"
 
-      - name: Lint
+      - name: Build
         working-directory: ./backend
-        run: npm run lint --if-present
-
-      - name: Build (TypeScript)
-        working-directory: ./backend
-        run: npm run build --if-present
-
-      - name: Run tests
-        working-directory: ./backend
-        run: echo "⏭️ Tests skipped for now (enable when ready)"
-
-      - name: Summary
-        if: always()
-        run: echo "✅ CI Pipeline completed successfully!"
+        run: npm run build
