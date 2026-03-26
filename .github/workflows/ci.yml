@@ -10,7 +10,7 @@ jobs:
   test-and-build:
     runs-on: ubuntu-latest
 
-    # MySQL service for CI database
+    # MySQL Database Service for CI
     services:
       mysql:
         image: mysql:8.0
@@ -27,15 +27,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4   # v4 is stable and sufficient
+        uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 22          # Use 20 for better stability with Prisma + Express
+          node-version: 22
           cache: 'npm'
 
-      # === All commands run from backend/ folder (monorepo style) ===
+      # ========================
+      # Backend Steps (Monorepo)
+      # ========================
       - name: Install dependencies
         working-directory: ./backend
         run: npm ci
@@ -60,7 +62,7 @@ jobs:
         env:
           DATABASE_URL: "mysql://root:root@127.0.0.1:3306/test_saas_db"
 
-      - name: Lint (if exists)
+      - name: Lint
         working-directory: ./backend
         run: npm run lint --if-present
 
@@ -68,10 +70,9 @@ jobs:
         working-directory: ./backend
         run: npm run build --if-present
 
-      # Tests are disabled for now — enable when you add them
       - name: Run tests
         working-directory: ./backend
-        run: echo "⏭️ Tests skipped for now (add test script later)"
+        run: echo "⏭️ Tests skipped for now (enable when ready)"
 
       - name: Summary
         if: always()
