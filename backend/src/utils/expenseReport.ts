@@ -1,4 +1,4 @@
-import {Prisma} from '../generated/prisma/client.js'
+import { PrismaClient } from '@prisma/client';
 
 const ALLOWED_SORT_FIELDS = ["expenseDate", "amount", "createdAt"];
 interface ExpenseReportQuery {

@@ -1,6 +1,6 @@
 import prisma from "../../prismaClient.js";
-import { Prisma } from "../../generated/prisma/client.js";
 import { subDays } from "date-fns";
+import { PrismaClient } from '@prisma/client';
 
 interface InventoryReportQuery {
   categoryId?: number;

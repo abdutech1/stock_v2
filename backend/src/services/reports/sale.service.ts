@@ -1,6 +1,6 @@
 // src/services/reports.service.ts
 import prisma from "../../prismaClient.js";
-import { Prisma } from "../../generated/prisma/client.js"; 
+import { PrismaClient } from '@prisma/client'; 
 import {calculateRevenue} from '../../utils/calculateRevenue.js'
 
 import { subDays, 

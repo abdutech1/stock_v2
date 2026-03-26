@@ -1,5 +1,6 @@
 import prisma from '../../prismaClient.js';
-import { Prisma } from '@/generated/prisma/client.js';
+
+import { PrismaClient } from '@prisma/client';
 import {buildOrderBy, buildExpenseWhere} from '../../utils/expenseReport.js'
 import { subDays, startOfDay, endOfDay } from "date-fns";
 
