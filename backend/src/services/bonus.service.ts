@@ -1,5 +1,5 @@
 import prisma from "../prismaClient.js";
-import { bonus_type } from "@/generated/prisma/enums.js";
+// import { bonus_type } from "@/generated/prisma/enums.js";
 
 export async function applyBonusPayment({
   periodStart,

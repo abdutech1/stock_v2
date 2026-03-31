@@ -1,37 +1,25 @@
 import type { Metadata } from "next";
 import { Toaster } from "react-hot-toast";
 import { ReactQueryProvider } from "@/providers/ReactQueryProvider";
+import { AppProvider } from "@/context/AppContext";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import ClientHydrationGuard from "@/components/ClientHydrationGuard"; // Import the guard
 import "./globals.css";
 import { OfflineStatusProvider } from "@/components/OfflineStatusProvider";
 
-
 export const metadata: Metadata = {
   title: {
-    default: "Jemo Boutique | Management",
-    template: "%s | Jemo Boutique",
+    default: "Vortex Stock | Management",
+    template: "%s | Vortex Stock",
   },
   description: "Manage stock, sales, employees and reports",
   metadataBase: new URL("http://localhost:3000/"),
-  
-  // Advanced Mobile App Settings
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Jemo POS",
-    startupImage: [
-      {
-        url: "/splash-640x1136.png",
-        media: "(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)",
-      },
-      {
-        url: "/splash-1242x2688.png",
-        media: "(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)",
-      },
-    ],
+    title: "Vortex POS",
   },
 };
-
 
 export const viewport = {
   width: "device-width",
@@ -45,9 +33,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen bg-slate-50/50 antialiased font-sans">
         <TooltipProvider>
           <ReactQueryProvider>
-            <main>{children}</main>
+            <AppProvider>
+              {/* This guard handles the "flicker-free" logic safely on the client */}
+              <ClientHydrationGuard>
+                <main>{children}</main>
+              </ClientHydrationGuard>
+              <OfflineStatusProvider/>
+            </AppProvider>
             <Toaster position="top-right" />
-            <OfflineStatusProvider/>
           </ReactQueryProvider>
         </TooltipProvider>
       </body>

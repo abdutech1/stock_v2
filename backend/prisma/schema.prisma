@@ -181,6 +181,9 @@ model Branch {
   transfersFrom StockTransfer[] @relation("FromBranch")
   transfersTo   StockTransfer[] @relation("ToBranch")
 
+  isActive       Boolean      @default(true)
+  deletedAt      DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

@@ -1,6 +1,19 @@
 import { z } from "zod";
 import { Plan } from "@prisma/client";
 
+// export const onboardOrgSchema = z.object({
+//   body: z.object({
+//     name: z.string().min(2, "Organization name is required"),
+//     slug: z
+//       .string()
+//       .min(2)
+//       .toLowerCase()
+//       .regex(/^[a-z0-9-]+$/, "Slug must be URL-friendly"),
+//     adminName: z.string().min(2, "Admin name is required"),
+//     adminPhone: z.string().min(9, "Valid phone number is required"),
+//   }),
+// });
+
 export const onboardOrgSchema = z.object({
   body: z.object({
     name: z.string().min(2, "Organization name is required"),
@@ -11,6 +24,7 @@ export const onboardOrgSchema = z.object({
       .regex(/^[a-z0-9-]+$/, "Slug must be URL-friendly"),
     adminName: z.string().min(2, "Admin name is required"),
     adminPhone: z.string().min(9, "Valid phone number is required"),
+    plan: z.nativeEnum(Plan).default(Plan.FREE), 
   }),
 });
 
@@ -18,9 +32,16 @@ export const onboardOrgSchema = z.object({
 /**
  * CREATE BRANCH
  */
+// export const createBranchSchema = z.object({
+//   body: z.object({
+//     branchName: z.string().min(2, "Branch name is too short"),
+//   }),
+// });
 export const createBranchSchema = z.object({
   body: z.object({
     branchName: z.string().min(2, "Branch name is too short"),
+    // Add this so the ID passes validation
+    organizationId: z.coerce.number().positive("Valid Organization ID is required"),
   }),
 });
 

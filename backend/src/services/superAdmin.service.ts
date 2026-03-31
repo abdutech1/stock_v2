@@ -3,16 +3,27 @@ import bcrypt from "bcrypt";
 import { AppError } from "../utils/AppError.js";
 import { UserRole, BranchRole, Plan } from "@prisma/client";
 
+
 export async function onboardOrganization(data: {
   name: string;
   slug: string;
   adminName: string;
   adminPhone: string;
+  plan?: Plan;
 }) {
+
+  // 1. Check if Organization Slug is taken
   const existingOrg = await prisma.organization.findUnique({ where: { slug: data.slug } });
-  if (existingOrg) throw new AppError("Slug already exists", 400);
+  if (existingOrg) throw new AppError("This organization slug is already in use.", 400);
+
+  // 2. CHECK IF PHONE NUMBER IS TAKEN (New Check)
+  const existingUser = await prisma.user.findUnique({ where: { phoneNumber: data.adminPhone } });
+  if (existingUser) {
+    throw new AppError("This phone number is already registered to another user.", 400);
+  }
 
   const hashedPassword = await bcrypt.hash("123456", 10);
+  const selectedPlan = data.plan || Plan.FREE;
 
   return await prisma.$transaction(async (tx) => {
     // 1. Create Organization
@@ -20,11 +31,33 @@ export async function onboardOrganization(data: {
       data: {
         name: data.name,
         slug: data.slug,
-        plan: Plan.FREE,
+        plan: selectedPlan,
       },
     });
 
-    // 2. Create the "Main Branch" (Billing logic: only 1 created by default)
+    // 2. Subscription Logic
+    const startsAt = new Date();
+    const endsAt = new Date();
+
+    if (selectedPlan === Plan.FREE) {
+      // Free plan = 30 days
+      endsAt.setDate(startsAt.getDate() + 30);
+    } else {
+      // All other paid plans = 1 year
+      endsAt.setFullYear(startsAt.getFullYear() + 1);
+    }
+
+    await tx.subscription.create({
+      data: {
+        organizationId: organization.id,
+        plan: selectedPlan,
+        startsAt,
+        endsAt,
+        isActive: true,
+      },
+    });
+
+    // 3. Create Main Branch
     const branch = await tx.branch.create({
       data: {
         name: "Main Branch",
@@ -32,7 +65,7 @@ export async function onboardOrganization(data: {
       },
     });
 
-    // 3. Create the Org Admin User
+    // 4. Create Org Admin
     const user = await tx.user.create({
       data: {
         name: data.adminName,
@@ -40,11 +73,11 @@ export async function onboardOrganization(data: {
         password: hashedPassword,
         role: UserRole.ORG_ADMIN,
         organizationId: organization.id,
-        mustChangePassword: true, // Enforcement
+        mustChangePassword: true,
       },
     });
 
-    // 4. Link Admin to the Branch
+    // 5. Link Admin to Branch
     await tx.branchUser.create({
       data: {
         userId: user.id,
@@ -58,27 +91,50 @@ export async function onboardOrganization(data: {
 }
 
 
-/**
- * CREATE ADDITIONAL BRANCH
- * Only accessible by SUPER_ADMIN. 
- * Used when an Organization pays for an extra branch.
- */
+
+
+
 export async function createAdditionalBranch(data: {
   organizationId: number;
   branchName: string;
 }) {
-  // 1. Verify the organization exists
+  // 1. Verify the organization exists and get its current plan
   const organization = await prisma.organization.findUnique({
     where: { id: data.organizationId },
+    select: { 
+      id: true, 
+      plan: true,
+      _count: {
+        select: { 
+          branches: { 
+            where: { deletedAt: null } // Only count active branches
+          } 
+        }
+      }
+    }
   });
 
   if (!organization) {
     throw new AppError("Organization not found", 404);
   }
 
-  // 2. Create the new branch
-  // Note: We don't link a user yet. The Org Admin will do that 
-  // via the "Assign Employee to Branch" feature.
+  const currentBranchCount = organization._count.branches;
+  const plan = organization.plan;
+
+  // 2. Enforce Plan Limits
+  // FREE = 1, BASIC = 1, PRO = 5, ENTERPRISE = Unlimited
+  if (plan === "FREE" && currentBranchCount >= 1) {
+    throw new AppError("FREE plan is limited to 1 branch. Upgrade to PRO for more.", 400);
+  }
+  
+  if (plan === "BASIC" && currentBranchCount >= 1) {
+    throw new AppError("BASIC plan is limited to 1 branch. Upgrade to PRO for more.", 400);
+  }
+
+  if (plan === "PRO" && currentBranchCount >= 5) {
+    throw new AppError("PRO plan is limited to 5 branches. Upgrade to ENTERPRISE for unlimited.", 400);
+  }
+
   const newBranch = await prisma.branch.create({
     data: {
       name: data.branchName,
@@ -88,8 +144,6 @@ export async function createAdditionalBranch(data: {
 
   return newBranch;
 }
-
-
 
 
 export async function getAllOrganizations() {
@@ -112,11 +166,14 @@ export async function getAllOrganizations() {
 }
 
 
+
 export async function getOrganizationDetails(orgId: number) {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
     include: {
-      branches: true,
+      branches: {
+        where: { deletedAt: null } 
+      },
       users: {
         where: { role: "ORG_ADMIN" },
         select: { id: true, name: true, phoneNumber: true, isActive: true },
@@ -153,6 +210,7 @@ export async function deleteOrganization(orgId: number) {
 }
 
 
+
 export async function updateSubscription(orgId: number, newPlan: Plan) {
   return await prisma.$transaction(async (tx) => {
     // 1. Deactivate current active subscriptions
@@ -161,18 +219,22 @@ export async function updateSubscription(orgId: number, newPlan: Plan) {
       data: { isActive: false },
     });
 
-    // 2. Create new subscription record
+    // 2. Set duration based on plan
+    const endsAt = new Date();
+    newPlan === Plan.FREE 
+      ? endsAt.setDate(endsAt.getDate() + 30) 
+      : endsAt.setFullYear(endsAt.getFullYear() + 1);
+
     const subscription = await tx.subscription.create({
       data: {
         organizationId: orgId,
         plan: newPlan,
         startsAt: new Date(),
-        endsAt: new Date(new Date().setFullYear(new Date().getFullYear() + 1)), // 1 year default
+        endsAt,
         isActive: true,
       },
     });
 
-    // 3. Update Org plan flag
     await tx.organization.update({
       where: { id: orgId },
       data: { plan: newPlan },
@@ -200,15 +262,17 @@ export async function addOrgAdmin(orgId: number, data: { name: string; phoneNumb
 }
 
 
+
 export async function superAdminResetPassword(userId: number) {
-  const tempPassword = "Reset123!";
+  // Generate a slightly more complex random-ish temp password
+  const tempPassword = `Reset@${Math.floor(1000 + Math.random() * 9000)}`;
   const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
   await prisma.user.update({
     where: { id: userId },
     data: {
       password: hashedPassword,
-      mustChangePassword: true,
+      mustChangePassword: true, // Forces them to change it on next login
     },
   });
 
@@ -228,5 +292,24 @@ export async function updateBranch(branchId: number, name: string) {
   return await prisma.branch.update({
     where: { id: branchId },
     data: { name }
+  });
+}
+
+
+
+export async function toggleBranchStatus(branchId: number, isActive: boolean) {
+  return await prisma.branch.update({
+    where: { id: branchId },
+    data: { isActive },
+  });
+}
+
+export async function deleteBranch(branchId: number) {
+  return await prisma.branch.update({
+    where: { id: branchId },
+    data: { 
+      deletedAt: new Date(),
+      isActive: false 
+    },
   });
 }

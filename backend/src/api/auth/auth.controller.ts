@@ -11,14 +11,9 @@ import {
   getMyBranches
 } from "../../services/auth.service.js";
 
+import { cookieOptions } from "@/utils/cookie.js";
 
-const cookieOptions: CookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-  path: "/",
-  maxAge: 8 * 60 * 60 * 1000,
-};
+
 
 
 export const loginController = catchAsync(async (req: Request, res: Response) => {

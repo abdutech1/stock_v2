@@ -23,6 +23,8 @@ import {
   Activity,
 } from "lucide-react";
 
+import { useApp } from "@/context/AppContext";
+
 type Language = "en" | "am";
 type BillingCycle = "monthly" | "yearly";
 
@@ -75,51 +77,15 @@ interface Translation {
 }
 
 export default function Home() {
-  const [language, setLanguage] = useState<Language>("en");
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  
   const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [showSuccess, setShowSuccess] = useState(false);
 
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("vortex-theme") as "light" | "dark" | null;
-    if (savedTheme === "dark") {
-      setTheme("dark");
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
-
-
-//  const toggleTheme = () => {
-//   setTheme((prev) => {
-//     const newTheme = prev === "light" ? "dark" : "light";
-//     if (newTheme === "dark") {
-//       document.documentElement.classList.add("dark");
-//     } else {
-//       document.documentElement.classList.remove("dark");
-//     }
-//     return newTheme;
-//   });
-// };
-
-const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    
-    if (newTheme === "dark") {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-    
-    localStorage.setItem("vortex-theme", newTheme);
-  };
-
-  const toggleLanguage = () => {
-    setLanguage((prev) => (prev === "en" ? "am" : "en"));
-  };
+  const { language, theme, toggleTheme, toggleLanguage } = useApp();
 
   const t = translations[language];
+
+
 
   const getPrice = (price: any) => {
     if (typeof price === "string") return price;

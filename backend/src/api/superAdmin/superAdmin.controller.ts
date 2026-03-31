@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { onboardOrganization, createAdditionalBranch } from "../../services/superAdmin.service.js";
+import prisma from "@/prismaClient.js";
 import { AppError } from "@/utils/AppError.js";
 import { catchAsync } from "../../utils/catchAsync.js";
 import * as superAdminService from "../../services/superAdmin.service.js";
@@ -37,8 +38,6 @@ export async function createBranchController(req: Request, res: Response) {
     res.status(error.statusCode || 400).json({ message: error.message });
   }
 }
-
-
 
 
 
@@ -82,26 +81,29 @@ export const addOrgAdminController = catchAsync(async (req: Request, res: Respon
   });
 });
 
-/**
- * RESET ANY USER PASSWORD
- * Super Admin uses this to help ORG_ADMINS who are locked out
- */
+
+
+
 export const resetAnyPasswordController = catchAsync(async (req: Request, res: Response) => {
   const userId = Number(req.params.userId);
+
+  // We fetch the user name first just to make the message clearer
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError("User not found", 404);
 
   const tempPassword = await superAdminService.superAdminResetPassword(userId);
 
   res.status(200).json({
     status: "success",
-    message: "Password reset successfully. Please share the temporary password securely.",
-    data: { tempPassword },
+    message: `Password for ${user.name} has been reset.`,
+    data: { 
+      tempPassword,
+      instructions: "Please copy this password. It will not be shown again." 
+    },
   });
 });
 
-/**
- * TOGGLE USER STATUS
- * Activate/Deactivate any user (Admin or Employee) from the Super Admin panel
- */
+
 export const toggleUserStatusController = catchAsync(async (req: Request, res: Response) => {
   const userId = Number(req.params.userId);
   const { isActive } = req.body;
@@ -118,23 +120,20 @@ export const toggleUserStatusController = catchAsync(async (req: Request, res: R
   });
 });
 
-/**
- * UPDATE SUBSCRIPTION PLAN
- * Changes the Org's Plan (FREE, PRO, etc.) and updates the active subscription
- */
+
+
 export const upgradeSubscriptionController = catchAsync(async (req: Request, res: Response) => {
   const orgId = Number(req.params.id);
   const { plan } = req.body;
 
-  const newSubscription = await superAdminService.updateSubscription(orgId, plan);
+  const sub = await superAdminService.updateSubscription(orgId, plan);
 
   res.status(200).json({
     status: "success",
-    message: `Organization plan upgraded to ${plan}`,
-    data: newSubscription,
+    message: `Organization successfully moved to ${plan} plan.`,
+    data: sub,
   });
 });
-
 
 export const updateBranchController = catchAsync(async (req: Request, res: Response) => {
   const branchId = Number(req.params.branchId);
@@ -143,3 +142,28 @@ export const updateBranchController = catchAsync(async (req: Request, res: Respo
   res.status(200).json({ status: "success", data: updated });
 });
 
+
+
+export const toggleBranchStatusController = catchAsync(async (req: Request, res: Response) => {
+  const branchId = Number(req.params.branchId);
+  const { isActive } = req.body;
+
+  const updatedBranch = await superAdminService.toggleBranchStatus(branchId, isActive);
+
+  res.status(200).json({
+    status: "success",
+    message: `Branch ${isActive ? "activated" : "deactivated"} successfully`,
+    data: updatedBranch,
+  });
+});
+
+export const deleteBranchController = catchAsync(async (req: Request, res: Response) => {
+  const branchId = Number(req.params.branchId);
+  
+  await superAdminService.deleteBranch(branchId);
+
+  res.status(204).json({
+    status: "success",
+    data: null,
+  });
+});
