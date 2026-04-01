@@ -5,6 +5,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { getMe, login as loginApi, logout as logoutApi } from "@/api/auth.api";
 import { toast } from "react-hot-toast";
 
+
 export type UserRole = "SUPER_ADMIN" | "ORG_ADMIN" | "EMPLOYEE";
 
 export interface AuthUser {
