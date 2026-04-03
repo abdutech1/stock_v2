@@ -21,6 +21,7 @@ import bonusRuleRoutes from "./api/bonusRules/bonus.routes.js";
 import bonusRoutes from "./api/bonus/bonus.routes.js";
 import attendanceRoutes from "./api/attendance/attendance.routes.js";
 import salaryPreviewRoutes from "./api/salaryPreview/salaryPreview.routes.js";
+import globalOverViewReportRoutes from './api/globalReport/report.routes.js'
 // import adminRoutes from './api/admin/admin.routes.js'
 import superAdminRoutes from "./api/superAdmin/superAdmin.routes.js";
 import cookieParser from "cookie-parser";
@@ -81,6 +82,8 @@ app.use(authenticate);
 
 // 1. GLOBAL SYSTEM ROUTES (Super Admin only)
 app.use("/api/system", authorize(UserRole.SUPER_ADMIN), superAdminRoutes);
+
+app.use('/api/reports/global-overview',globalOverViewReportRoutes)
 
 // 2. USER & STAFF MANAGEMENT
 app.use("/api/users", userRoutes);

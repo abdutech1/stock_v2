@@ -132,8 +132,8 @@ export default function Home() {
             <button
               onClick={toggleLanguage}
               className="flex items-center gap-2 px-4 py-2 text-sm font-semibold hover:text-indigo-600">
-              <Globe className="hidden sm:block" size={20} />
-              <span>{language === "en" ? "አማርኛ" : "English"}</span>
+              {/* <Globe className="hidden sm:block" size={20} /> */}
+              <span>{language === "en" ? "AM" : "EN"}</span>
             </button>
             <Link
               href="/login"

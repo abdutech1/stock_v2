@@ -193,25 +193,59 @@ export async function resetEmployeePassword(employeeId: number, organizationId: 
 
 
 export async function getMyBranches(userId: number) {
-  const userWithBranches = await prisma.user.findUnique({
+  // 1. Get the user's role and organizationId
+  const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: {
-      branches: {
-        select: {
-          branch: {
-            select: {
-              id: true,
-              name: true,
-            }
-          },
-          role: true 
-        }
-      }
+    select: { 
+      role: true, 
+      organizationId: true 
     }
   });
 
-  if (!userWithBranches) throw new AppError("User not found", 404);
-  return userWithBranches.branches.map((b) => ({
+  if (!user) throw new AppError("User not found", 404);
+
+  // 2. LOGIC FOR ORG_ADMIN: Fetch all active branches in their org
+  if (user.role === "ORG_ADMIN" || user.role === "SUPER_ADMIN") {
+    const branches = await prisma.branch.findMany({
+      where: {
+        organizationId: user.organizationId,
+        isActive: true,
+        deletedAt: null // Excludes the deleted branches (7, 8, 9)
+      },
+      select: {
+        id: true,
+        name: true,
+      }
+    });
+
+    return branches.map(b => ({
+      id: b.id,
+      name: b.name,
+      userBranchRole: user.role // Admin has admin role across all
+    }));
+  }
+
+  // 3. LOGIC FOR EMPLOYEES: Only fetch assigned branches from branchuser table
+  const assignedBranches = await prisma.branchUser.findMany({
+    where: { 
+      userId: userId,
+      branch: {
+        isActive: true,
+        deletedAt: null
+      }
+    },
+    select: {
+      branch: {
+        select: {
+          id: true,
+          name: true,
+        }
+      },
+      role: true 
+    }
+  });
+
+  return assignedBranches.map((b) => ({
     id: b.branch.id,
     name: b.branch.name,
     userBranchRole: b.role

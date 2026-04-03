@@ -29,15 +29,26 @@ export function useAuth() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const loginMutation = useMutation({
-    mutationFn: ({ p, pw }: { p: string; pw: string }) => loginApi(p, pw),
-    onSuccess: (responseData) => {
-      queryClient.setQueryData(["auth", "me"], responseData.data);
-      toast.success("Welcome back!");
-      // router.push("/dashboard");
-    },
-  });
+  // const loginMutation = useMutation({
+  //   mutationFn: ({ p, pw }: { p: string; pw: string }) => loginApi(p, pw),
+  //   onSuccess: (responseData) => {
+  //     queryClient.setQueryData(["auth", "me"], responseData.data);
+  //     toast.success("Welcome back!");
+  //     // router.push("/dashboard");
+  //   },
+  // });
 
+  const loginMutation = useMutation({
+  mutationFn: ({ p, pw }: { p: string; pw: string }) => loginApi(p, pw),
+  onSuccess: (responseData) => {
+    // 1. Update the cache with new user data
+    queryClient.setQueryData(["auth", "me"], responseData); 
+    // 2. IMPORTANT: Invalidate the query to force a fresh fetch
+    queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+    
+    toast.success("Welcome back!");
+  },
+});
   const logout = async () => {
     try {
       await logoutApi();
@@ -60,3 +71,10 @@ export function useAuth() {
     logout,
   };
 }
+
+
+
+
+
+
+
