@@ -24,6 +24,7 @@ import salaryPreviewRoutes from "./api/salaryPreview/salaryPreview.routes.js";
 import globalOverViewReportRoutes from './api/globalReport/report.routes.js'
 // import adminRoutes from './api/admin/admin.routes.js'
 import superAdminRoutes from "./api/superAdmin/superAdmin.routes.js";
+import branchDashboardRoutes from './api/branch-dashboard/branch-dashboard.routes.js'
 import cookieParser from "cookie-parser";
 
 import { globalErrorHandler } from "./middleware/errorMiddleware.js";
@@ -93,6 +94,9 @@ app.use("/api/salary-preview", salaryPreviewRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/bonus-rules", bonusRuleRoutes);
 app.use("/api/bonuses", bonusRoutes);
+
+// ANALYTICS & BUSINESS INTELLIGENCE
+app.use('/api/branch-dashboard',branchDashboardRoutes)
 app.use("/api/sales", saleRouter);
 
 // Owner-only routes
