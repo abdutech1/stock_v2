@@ -143,6 +143,7 @@ model User {
   role           UserRole
   organizationId Int
   isActive       Boolean  @default(true)
+  baseSalary         Float           @default(0)
   mustChangePassword Boolean   @default(true)
   lastLoginAt        DateTime?
 

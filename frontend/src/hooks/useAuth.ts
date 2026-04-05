@@ -8,14 +8,28 @@ import { toast } from "react-hot-toast";
 
 export type UserRole = "SUPER_ADMIN" | "ORG_ADMIN" | "EMPLOYEE";
 
+export interface UserBranch {
+  branch: {
+    id: number;
+    name: string;
+  };
+}
+
 export interface AuthUser {
   id: number;
   phoneNumber: string;
   name: string;
   role: UserRole;
+  activeBranchId?: number;
   organizationId: number;
-  branchId?: number;
+  branchId?: number; // Keep this for employees
+  branches?: UserBranch[]; // Add this for ORG_ADMINs
   mustChangePassword: boolean;
+  organization?: {
+    name: string;
+    slug: string;
+    plan: string;
+  };
 }
 
 export function useAuth() {
@@ -62,6 +76,7 @@ export function useAuth() {
 
   return {
     user,
+    role: user?.role,
     isAuthenticated: !!user,
     isAdmin: user?.role === "SUPER_ADMIN" || user?.role === "ORG_ADMIN",
     isLoading,

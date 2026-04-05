@@ -56,14 +56,9 @@ interface OnboardData {
   plan: string;
 }
 
-// Helper components (StatCard, FormInput, etc. should be imported or defined here)
 
 export default function SuperAdminDashboard() {
-  // const queryClient = useQueryClient();
-  // const [searchTerm, setSearchTerm] = useState("");
-  // const [isModalOpen, setIsModalOpen] = useState(false);
-  // const [isManageOpen, setIsManageOpen] = useState(false);
-  // const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
+ 
 
   const { t } = useApp();
   const { user } = useAuth();
@@ -356,7 +351,7 @@ export default function SuperAdminDashboard() {
 
   return (
     // <div className="max-w-[1600px] mx-auto p-4 lg:p-8 space-y-8">
-    <div className="max-w-[1600px] mx-auto p-4 lg:p-8 space-y-8 bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-300">
+    <div className="max-w-[1600px] mx-auto space-y-8 bg-slate-50 dark:bg-slate-950 min-h-screen transition-colors duration-300">
       <Navbar/>
       {/* Header & Stats Section */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">

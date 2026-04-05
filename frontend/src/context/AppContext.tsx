@@ -84,6 +84,8 @@ interface AppContextType {
   toggleLanguage: () => void;
   hasHydrated: boolean;
   t: typeof translations.en;
+  activeBranchId: number | null;
+  setActiveBranchId: (id: number) => void; 
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -92,8 +94,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState<Language>("en");
   const [theme, setTheme] = useState<Theme>("light");
   const [hasHydrated, setHasHydrated] = useState(false);
+  const [activeBranchId, setActiveBranchIdState] = useState<number | null>(null);
 
   useEffect(() => {
+    const savedBranch = localStorage.getItem("vortex-active-branch");
+    if (savedBranch) setActiveBranchIdState(Number(savedBranch));
     // 1. Theme Persistence
     const savedTheme = localStorage.getItem("vortex-theme") as Theme | null;
     if (savedTheme === "dark") {
@@ -111,6 +116,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setHasHydrated(true);
   }, []);
 
+  const setActiveBranchId = (id: number) => {
+    setActiveBranchIdState(id);
+    localStorage.setItem("vortex-active-branch", id.toString());
+  };
+
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
@@ -127,7 +137,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 const t = translations[language];
 
   return (
-    <AppContext.Provider value={{ language, setLanguage, theme, toggleTheme, toggleLanguage, hasHydrated,t }}>
+    <AppContext.Provider value={{ language, setLanguage, theme, toggleTheme, toggleLanguage, hasHydrated,t,activeBranchId, setActiveBranchId }}>
       {children}
     </AppContext.Provider>
   );

@@ -2,11 +2,13 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import prisma from "../prismaClient.js";
 import { AppError } from "../utils/AppError.js";
+import { UserRole } from "@prisma/client";
 
 
 const JWT_SECRET = process.env.JWT_SECRET!;
-const JWT_EXPIRES_IN = "8h";
+// const JWT_EXPIRES_IN = "8h";
 
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "8h";
 
 
 export async function login(
@@ -36,7 +38,7 @@ export async function login(
       branchId: activeBranchId 
     },
     process.env.JWT_SECRET!,
-    { expiresIn: JWT_EXPIRES_IN }
+    { expiresIn: JWT_EXPIRES_IN as any }
   );
 
   // Bring back the housekeeping - it's essential for industry standards
@@ -117,55 +119,69 @@ export async function getMe(userId: number) {
 
 
 export async function switchBranch(userId: number, targetBranchId: number) {
-  // 1. Verify the user belongs to this branch AND get their role
-  const branchUser = await prisma.branchUser.findUnique({
-    where: {
-      userId_branchId: { userId, branchId: targetBranchId },
-    },
-    include: {
-      user: {
-        select: { 
-          id: true, 
-          role: true, 
-          organizationId: true, 
-          name: true, 
-          mustChangePassword: true 
-        }
-      }
+  // 1. Fetch User and Target Branch in parallel for performance
+  const [user, targetBranch] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, organizationId: true, name: true }
+    }),
+    prisma.branch.findUnique({
+      where: { id: targetBranchId },
+      select: { id: true, organizationId: true, isActive: true }
+    })
+  ]);
+
+  // 2. Fundamental Checks
+  if (!user) throw new AppError("User profile not found", 404);
+  if (!targetBranch) throw new AppError("Target branch does not exist", 404);
+  if (!targetBranch.isActive) throw new AppError("Target branch is currently inactive", 400);
+
+  // 3. Permission Hierarchy (The "Industry Standard" Check)
+  let canAccess = false;
+
+  // Tier A: Super Admin (Global Access)
+  if (user.role === UserRole.SUPER_ADMIN) {
+    canAccess = true;
+  } 
+  // Tier B: Org Admin (Access all branches within THEIR organization)
+  else if (user.role === UserRole.ORG_ADMIN) {
+    if (user.organizationId === targetBranch.organizationId) {
+      canAccess = true;
     }
-  });
-
-  // 2. Security Check: Access + Role Check
-  if (!branchUser) {
-    throw new AppError("You do not have access to this branch", 403);
+  } 
+  // Tier C: Employee (Must have an explicit link in BranchUser)
+  else {
+    const branchLink = await prisma.branchUser.findUnique({
+      where: { 
+        userId_branchId: { userId, branchId: targetBranchId } 
+      }
+    });
+    if (branchLink) canAccess = true;
   }
 
-  if (branchUser.user.role === "EMPLOYEE") {
-    throw new AppError("Employees are not permitted to switch branches", 403);
+  if (!canAccess) {
+    throw new AppError("Access Denied: You do not have permissions for this branch.", 403);
   }
 
-  // 3. Generate a NEW token with the updated branchId
+  // 4. Generate a Context-Aware JWT
+  const tokenPayload = {
+    id: user.id,
+    role: user.role,
+    organizationId: user.organizationId,
+    branchId: targetBranchId, // The "Current Context"
+  };
+
   const newToken = jwt.sign(
-    {
-      id: branchUser.user.id,
-      role: branchUser.user.role,
-      organizationId: branchUser.user.organizationId,
-      branchId: targetBranchId, 
-    },
+    tokenPayload,
     process.env.JWT_SECRET!,
-    { expiresIn: "8h" }
+    { expiresIn: JWT_EXPIRES_IN as any }
   );
 
   return { 
     token: newToken, 
-    user: {
-      ...branchUser.user,
-      branchId: targetBranchId 
-    } 
+    user: { ...user, branchId: targetBranchId } 
   };
 }
-
-
 
 
 
@@ -174,16 +190,16 @@ export async function resetEmployeePassword(employeeId: number, organizationId: 
     where: { id: employeeId, organizationId },
   });
 
-  if (!user) throw new AppError("Employee not found in your organization", 404);
+  if (!user) throw new AppError("Employee not found", 404);
 
-  const tempPassword = "Password123!";
+  const tempPassword = `Temp@${Math.floor(100000 + Math.random() * 900000)}`;
   const hashed = await bcrypt.hash(tempPassword, 10);
 
   await prisma.user.update({
     where: { id: employeeId },
     data: {
       password: hashed,
-      mustChangePassword: true, // Forces change on their next login
+      mustChangePassword: true,
     },
   });
 

@@ -70,9 +70,8 @@ export const changePasswordController = catchAsync(async (req: Request, res: Res
 
 export const resetEmployeePasswordController = catchAsync(async (req: Request, res: Response) => {
   const { employeeId } = req.body; 
-  const organizationId = (req as any).user.organizationId; // Get from auth middleware
+  const organizationId = (req as any).user.organizationId; 
   
-  // Pass organizationId to ensure the admin only resets their own staff
   const tempPassword = await resetEmployeePassword(employeeId, organizationId);
 
   res.status(200).json({
@@ -88,17 +87,35 @@ export const switchBranchController = catchAsync(async (req: Request, res: Respo
   const { branchId } = req.body;
   const userId = req.user?.id;
 
-  if (!userId) throw new AppError("Unauthorized", 401);
+  // 1. Data Integrity
+  if (!userId) throw new AppError("Session expired, please login again", 401);
+  if (!branchId) throw new AppError("Missing branch destination", 400);
 
+  // 2. Execute Business Logic
   const { token, user } = await switchBranch(userId, Number(branchId));
 
-  // Overwrite the existing cookie with the new branch context
-  res.cookie("token", token, cookieOptions);
+  // 3. Cookie Management (Security Best Practices)
+  const isProduction = process.env.NODE_ENV === "production";
+  
+  res.cookie("token", token, {
+    httpOnly: true, // Prevents XSS attacks
+    secure: isProduction, // Only send over HTTPS in prod
+    sameSite: isProduction ? "none" : "lax", // Cross-site support if needed
+    maxAge: 8 * 60 * 60 * 1000, // 8 Hours
+    path: "/", // Available to all routes
+  });
 
+  // 4. Clean Response
   res.status(200).json({
     status: "success",
-    message: `Switched to branch ID: ${branchId}`,
-    data: { user, branchId }
+    message: `Switched context to ${user.name} @ Branch ${branchId}`,
+    data: {
+      user: {
+        id: user.id,
+        role: user.role,
+        currentBranchId: branchId
+      }
+    }
   });
 });
 

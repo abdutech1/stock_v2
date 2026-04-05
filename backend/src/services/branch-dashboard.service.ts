@@ -186,6 +186,9 @@ export const getBranchDashboardData = async ({
     const cogs = match ? Number(match.cogs) : 0;
     const profit = revenue - cogs;
     
+
+  
+
     return {
       date: format(day, 'MMM dd'),
       revenue,
@@ -193,7 +196,13 @@ export const getBranchDashboardData = async ({
       grossMargin: revenue > 0 ? Number(((profit / revenue) * 100).toFixed(2)) : 0
     };
   });
-
+  const formattedRecentSales = recentSales.map(s => ({
+  id: s.id,
+  customer: s.customer?.name || "Walk-in Customer",
+  amount: Number(s.totalAmount),
+  time: format(new Date(s.createdAt), 'p'),
+  status: s.status
+}));
   // 5. FINAL RESPONSE MAPPING
   return {
     kpis: {
@@ -217,7 +226,7 @@ export const getBranchDashboardData = async ({
       revenueTrend: formattedTrend,
       topProducts: topVariantsRaw
     },
-    recentSales,
+    recentSales: formattedRecentSales,
     topExpenses
   };
 };

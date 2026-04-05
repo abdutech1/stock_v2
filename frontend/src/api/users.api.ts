@@ -2,6 +2,8 @@ import api from "./axios";
 
 const USERS_PREFIX = "/users";
 
+export type BranchRole = "MANAGER" | "CASHIER" | "STOCK_KEEPER"; 
+
 export interface Employee {
   id: number;
   name: string;
@@ -15,7 +17,9 @@ export interface Employee {
 export interface CreateEmployeeInput {
   name: string;
   phoneNumber: string;
-  baseSalary?: number;
+  branchRole: BranchRole;
+  branchId: number;
+  baseSalary?: number; 
 }
 
 export interface UpdateEmployeeInput extends Partial<CreateEmployeeInput> {
@@ -27,21 +31,15 @@ export async function createEmployee(data: CreateEmployeeInput) {
   return res.data;
 }
 
-export async function getEmployees(): Promise<Employee[]> {
-  const res = await api.get(USERS_PREFIX);
-  return res.data;
-}
-
-// export async function deactivateEmployee(id: number) {
-//   const res = await api.delete(`${USERS_PREFIX}/${id}`);
-//   return res.data;
-// }
 
 
-// export async function activateEmployee(id: number) {
-//   const res = await api.patch(`${USERS_PREFIX}/${id}/activate`);
-//   return res.data;
-// }
+export const getEmployees = async (branchId?: number) => {
+  // Pass branchId as a query parameter
+  const response = await api.get(`/users`, {
+    params: { branchId } 
+  });
+  return response.data;
+};
 
 
 export const updateEmployee = async (id: number, data: UpdateEmployeeInput) => {
@@ -56,6 +54,12 @@ export const deactivateEmployee = async (id: number) => {
 
 export const activateEmployee = async (id: number) => {
   const response = await api.patch(`${USERS_PREFIX}/${id}/activate`);
+  return response.data;
+};
+
+
+export const transferEmployee = async (id: number, data: { newBranchId: number; newRole: string }) => {
+  const response = await api.patch(`/users/${id}/transfer`, data);
   return response.data;
 };
 
